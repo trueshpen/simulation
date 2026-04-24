@@ -32,9 +32,9 @@ MOVEMENT_COST = 0.1
 VISION_COST = 0.03  # per tick per (range * angle / default_angle)
 SPEED_COST = 0.1
 DIRECTION_CHANGE_COST = 0.05
-FOOD_ENERGY = 20
-PREY_ENERGY = 50
-EAT_COOLDOWN = 5.0  # seconds after a meal before a creature eats again ("sytost")
+FOOD_ENERGY = 30
+PREY_ENERGY = 60
+EAT_COOLDOWN = 3.0  # seconds after a meal before a creature eats again ("sytost")
 HUNGRY_ENERGY = 50  # below this, creature only chases food (ignores potential mates)
 
 # Carnivores are larger, stronger predators — they get a runtime multiplier
