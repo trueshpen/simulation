@@ -378,9 +378,27 @@ def index():
     return render_template('index.html')
 
 
+def current_state():
+    now = time.time()
+    return {
+        'creatures': [{
+            'x': c.x, 'y': c.y, 'direction': c.direction,
+            'isCarnivore': c.is_carnivore, 'vision': c.vision_range,
+            'speed': c.speed, 'directionChange': c.direction_change,
+            'age': now - c.creation_time, 'isAdult': c.is_adult, 'isOld': c.is_old,
+            'energy': c.energy,
+        } for c in creatures],
+        'food': foods,
+        'simulationTime': (now - simulation_start_time) if simulation_start_time else 0,
+    }
+
+
 @socketio.on('connect')
 def handle_connect():
     logger.info('Client connected')
+    if not simulation_running:
+        initialize_simulation()
+    socketio.emit('simulation_state', current_state())
 
 
 @socketio.on('init_simulation')
@@ -390,16 +408,7 @@ def handle_init():
     initialize_simulation()
     if simulation_running:
         simulation_start_time = time.time()
-    socketio.emit('simulation_state', {
-        'creatures': [{
-            'x': c.x, 'y': c.y, 'direction': c.direction,
-            'isCarnivore': c.is_carnivore, 'vision': c.vision_range,
-            'speed': c.speed, 'directionChange': c.direction_change,
-            'age': 0, 'isAdult': False, 'isOld': False, 'energy': c.energy,
-        } for c in creatures],
-        'food': foods,
-        'simulationTime': 0,
-    })
+    socketio.emit('simulation_state', current_state())
 
 
 @socketio.on('start_simulation')
