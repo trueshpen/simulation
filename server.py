@@ -222,11 +222,14 @@ class Creature:
         return diff <= self.vision_angle
 
     def is_prey_for(self, predator):
-        """Whether `self` can be eaten by `predator` (a carnivore)."""
-        if self is predator or not self.alive:
+        """Whether `self` can be eaten by `predator` (a carnivore).
+        Children are never prey. Any adult herbivore (including old)
+        is prey. Carnivores only eat each other when the target is old.
+        """
+        if self is predator or not self.alive or not self.is_adult:
             return False
         if not self.is_carnivore:
-            return self.is_adult and not self.is_old
+            return True
         return self.is_old
 
     def is_hungry(self):
