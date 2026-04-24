@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evoluční simulace</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ asset_version('styles.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
@@ -12,7 +12,19 @@
     <div class="sim-area">
         <div class="creature-list">
             <div class="creature-list-header">Tvorové</div>
-            <div id="creature-list-body"></div>
+            <div class="creature-list-scroll">
+                <table class="creature-table">
+                    <thead>
+                        <tr>
+                            <th class="col-id">#</th>
+                            <th class="col-species">Druh</th>
+                            <th class="col-speed">Rychl.</th>
+                            <th class="col-vision">Zrak</th>
+                        </tr>
+                    </thead>
+                    <tbody id="creature-list-body"></tbody>
+                </table>
+            </div>
         </div>
         <div class="canvas-area">
             <button id="restartButton" title="Restartovat simulaci">↻ Restart</button>
@@ -31,6 +43,6 @@
         <div class="log-header">Události</div>
         <div id="log-list"></div>
     </div>
-    <script src="{{ url_for('static', filename='simulation.js') }}"></script>
+    <script src="{{ url_for('static', filename='simulation.js') }}?v={{ asset_version('simulation.js') }}"></script>
 </body>
 </html>

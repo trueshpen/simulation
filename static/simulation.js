@@ -103,20 +103,26 @@ function creatureColor(c) {
 function creatureRowHTML(c) {
     const color = creatureColor(c);
     const dotClass = c.isAdult ? 'adult' : 'child';
-    const vis = c.vision > 0
-        ? `zrak <b>${c.vision.toFixed(1)}</b>px / <b>${Math.round((c.visionAngle || DEFAULT_VISION_HALF_CONE) * 2 * 180 / Math.PI)}°</b>`
-        : '<small>slepý</small>';
-    return '<div class="creature-row">'
-        + `<div class="creature-dot ${dotClass}" style="background:${color}"></div>`
-        + '<div class="creature-stats">'
-        + `rych. <b>${c.speed.toFixed(2)}</b> &nbsp; ${vis}`
-        + '</div></div>';
+    let visCell;
+    if (c.vision > 0) {
+        const angleDeg = Math.round((c.visionAngle || DEFAULT_VISION_HALF_CONE) * 2 * 180 / Math.PI);
+        visCell = `${c.vision.toFixed(1)} / ${angleDeg}°`;
+    } else {
+        visCell = '<span class="vis-dim">—</span>';
+    }
+    return '<tr>'
+        + `<td class="col-id">${c.id ?? ''}</td>`
+        + `<td class="col-species"><span class="creature-dot ${dotClass}" style="background:${color}"></span></td>`
+        + `<td>${c.speed.toFixed(2)}</td>`
+        + `<td>${visCell}</td>`
+        + '</tr>';
 }
 
 function renderCreatureList() {
     const body = listBody();
     if (!body) return;
-    body.innerHTML = state.creatures.map(creatureRowHTML).join('');
+    const sorted = state.creatures.slice().sort((a, b) => (a.id || 0) - (b.id || 0));
+    body.innerHTML = sorted.map(creatureRowHTML).join('');
 }
 
 function appendLogs(events) {

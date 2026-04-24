@@ -1,3 +1,4 @@
+import os
 import random
 import math
 import time
@@ -33,7 +34,7 @@ SPEED_COST = 0.1
 DIRECTION_CHANGE_COST = 0.05
 FOOD_ENERGY = 20
 PREY_ENERGY = 50
-HUNGER_THRESHOLD = 100  # carnivore with energy >= this skips a kill
+EAT_COOLDOWN = 5.0  # seconds after a meal before a creature eats again ("sytost")
 
 # Interaction radii
 EAT_RADIUS = 20
@@ -76,6 +77,7 @@ creatures = []
 foods = []
 simulation_running = False
 simulation_start_time = None
+_next_creature_id = 0
 
 # Event log (flushed into every broadcast) — only periodic stat snapshot
 _events = []
@@ -130,6 +132,9 @@ def spawn_food():
 class Creature:
     def __init__(self, x, y, speed=3, direction_change=0.2,
                  vision_range=0, vision_angle=0, is_carnivore=False):
+        global _next_creature_id
+        _next_creature_id += 1
+        self.id = _next_creature_id
         self.x = x
         self.y = y
         self.speed = speed
@@ -240,14 +245,15 @@ class Creature:
     def try_eat(self, food_list, creature_list):
         """Consume food/prey within touch range. Mutates food_list and marks prey dead."""
         now = time.time()
+        # Both species have "sytost": 5 seconds after a meal they don't eat.
+        if now - self.last_food < EAT_COOLDOWN:
+            return False
         if self.is_carnivore:
             for other in creature_list:
                 if not other.is_prey_for(self):
                     continue
                 if math.hypot(other.x - self.x, other.y - self.y) > ATTACK_RADIUS:
                     continue
-                if self.energy >= HUNGER_THRESHOLD:
-                    return False
                 other.alive = False
                 self.energy += PREY_ENERGY
                 self.last_food = now
@@ -347,8 +353,10 @@ class Creature:
 
 def initialize_simulation():
     global creatures, foods, simulation_start_time, _events, _last_stats_time
+    global _next_creature_id
     _events = []
     _last_stats_time = 0.0
+    _next_creature_id = 0
     cx, cy = MAP_SIZE / 2, MAP_SIZE / 2
     creatures = [
         Creature(
@@ -436,6 +444,18 @@ def update_simulation():
         time.sleep(0.1)
 
 
+@app.context_processor
+def inject_asset_version():
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+
+    def asset_version(filename):
+        try:
+            return int(os.path.getmtime(os.path.join(static_dir, filename)))
+        except OSError:
+            return 0
+    return {'asset_version': asset_version}
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -446,6 +466,7 @@ def current_state():
     now = time.time()
     state = {
         'creatures': [{
+            'id': c.id,
             'x': c.x, 'y': c.y, 'direction': c.direction,
             'isCarnivore': c.is_carnivore,
             'vision': c.vision_range, 'visionAngle': c.vision_angle,
