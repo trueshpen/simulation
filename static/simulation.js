@@ -7,7 +7,7 @@ const VISION_HALF_CONE = Math.PI / 4;
 const CREATURE_SIZE = 5;
 
 let state = { creatures: [], food: [], simulationTime: 0 };
-let isRunning = false;
+let isRunning = true;
 
 function resizeCanvas() {
     const padding = 40;

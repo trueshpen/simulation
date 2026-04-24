@@ -14,9 +14,10 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # World
 MAP_SIZE = 800
 MAX_FOOD = 200
-FOOD_SPAWN_RATE = 0.2
+FOOD_SPAWN_RATE = 0.22
 INITIAL_FOOD = 100
 INITIAL_CREATURES = 10
+INITIAL_SPEED_RANGE = (2.2, 4.4)
 
 # Creature lifecycle (seconds)
 MATURATION_TIME = 5
@@ -276,7 +277,7 @@ def initialize_simulation():
         Creature(
             x=random.uniform(0, MAP_SIZE),
             y=random.uniform(0, MAP_SIZE),
-            speed=random.uniform(2, 4),
+            speed=random.uniform(*INITIAL_SPEED_RANGE),
             direction_change=random.uniform(0.1, 0.3),
             vision_range=0,
             is_carnivore=False,
@@ -395,9 +396,11 @@ def current_state():
 
 @socketio.on('connect')
 def handle_connect():
+    global simulation_running, simulation_start_time
     logger.info('Client connected')
-    if not simulation_running:
-        initialize_simulation()
+    initialize_simulation()
+    simulation_running = True
+    simulation_start_time = time.time()
     socketio.emit('simulation_state', current_state())
 
 
