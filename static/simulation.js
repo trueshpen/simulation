@@ -9,10 +9,10 @@ const CREATURE_SIZE = 5;
 let state = { creatures: [], food: [], simulationTime: 0 };
 
 function resizeCanvas() {
-    // Reserve space: 2 × 225 list + 3 × 14 gaps + 2 × 16 body padding.
-    const reservedW = 2 * 225 + 3 * 14 + 2 * 16 + 20;
-    // Reserve below: top bar (~44) + stats (~72) + log (~260) + gaps + body padding.
-    const reservedH = 44 + 72 + 260 + 3 * 14 + 2 * 16 + 20;
+    // main-layout: [herb 225] [carn 225] [canvas ???] [right 280] + gaps
+    const reservedW = 2 * 225 + 280 + 3 * 14 + 2 * 16 + 20;
+    // Vertical: top bar (~44) + body padding + safety
+    const reservedH = 44 + 2 * 16 + 20;
     const maxSize = Math.min(
         window.innerWidth - reservedW,
         window.innerHeight - reservedH,

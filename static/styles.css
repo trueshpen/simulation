@@ -8,6 +8,7 @@ body {
 
 .top-bar {
     display: flex;
+    justify-content: flex-end;
     align-items: center;
     gap: 16px;
     margin-bottom: 16px;
@@ -134,31 +135,33 @@ body {
     color: #bbb;
 }
 
-.main-column {
-    flex: 1;
-    min-width: 0;
+.right-column {
+    width: 280px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    max-height: calc(100vh - 80px);
+    overflow: hidden;
 }
 
 #simulationCanvas {
     background: #fafafa;
     border: 2px solid #333;
     display: block;
-    max-width: 100%;
-    align-self: flex-start;
+    flex-shrink: 0;
 }
 
 .stats {
-    padding: 12px 18px;
+    padding: 12px 16px;
     background: #fff;
     border-radius: 6px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 6px 20px;
+    grid-template-columns: 1fr;
+    gap: 5px 0;
     font-size: 13px;
+    flex-shrink: 0;
 }
 
 .stats b {
@@ -167,6 +170,10 @@ body {
 }
 
 .log-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     background: #fff;
     border-radius: 6px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -176,16 +183,16 @@ body {
 .log-header {
     padding: 8px 16px;
     background: #e0e0e0;
-    border-radius: 6px 6px 0 0;
     font-weight: 600;
     font-size: 14px;
+    flex-shrink: 0;
 }
 
 #log-list {
+    flex: 1;
     padding: 8px 16px;
     font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
     font-size: 12px;
-    max-height: 220px;
     overflow-y: auto;
 }
 
