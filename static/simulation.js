@@ -135,23 +135,32 @@ function renderCreatureList() {
 function appendLogs(events) {
     const list = logList();
     if (!list || !events.length) return;
-    const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
+    const scroller = list.closest('.log-scroll');
+    const nearBottom = scroller
+        ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4
+        : true;
     const frag = document.createDocumentFragment();
     for (const e of events) {
-        const row = document.createElement('div');
-        row.className = 'log-entry log-' + e.type;
-        const ts = document.createElement('span');
-        ts.className = 'log-time';
-        ts.textContent = Math.floor(e.t).toString().padStart(3, '0') + 's';
-        row.appendChild(ts);
-        row.appendChild(document.createTextNode(e.text));
-        frag.appendChild(row);
+        if (e.type !== 'stat') continue;
+        const tr = document.createElement('tr');
+        tr.className = 'log-stat';
+        const ts = Math.floor(e.t).toString() + 's';
+        if (e.empty) {
+            tr.innerHTML = `<td>${ts}</td><td colspan="4"><em>žádní tvorové</em></td>`;
+        } else {
+            const visStats = e.visionCount > 0
+                ? `${e.visionDist.toFixed(1)} / ${Math.round(e.visionAngleDeg)}°`
+                : '—';
+            tr.innerHTML = `<td>${ts}</td><td>${e.herb}</td><td>${e.carn}</td>`
+                + `<td>${e.visionCount}</td><td>${visStats}</td>`;
+        }
+        frag.appendChild(tr);
     }
     list.appendChild(frag);
     while (list.children.length > MAX_LOG_ENTRIES) {
         list.removeChild(list.firstChild);
     }
-    if (nearBottom) list.scrollTop = list.scrollHeight;
+    if (nearBottom && scroller) scroller.scrollTop = scroller.scrollHeight;
 }
 
 socket.on('simulation_state', function (data) {

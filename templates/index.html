@@ -56,8 +56,21 @@
                 <div><b>Průměrná rychlost:</b> <span id="stat-speed">0</span></div>
             </div>
             <div class="log-panel">
-                <div class="log-header">Události</div>
-                <div id="log-list"></div>
+                <div class="log-header">Historie</div>
+                <div class="log-scroll">
+                    <table class="stat-table">
+                        <thead>
+                            <tr>
+                                <th>Čas</th>
+                                <th>Býl</th>
+                                <th>Mas</th>
+                                <th>Zrak #</th>
+                                <th>Zrak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-list"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

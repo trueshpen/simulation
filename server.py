@@ -105,22 +105,24 @@ def maybe_log_stats():
     if now - _last_stats_time < STATS_INTERVAL:
         return
     _last_stats_time = now
+    event = {'type': 'stat', 't': sim_elapsed()}
     if not creatures:
-        log_event('stat', 'Žádní tvorové')
+        event['empty'] = True
+        _events.append(event)
         return
     herb = sum(1 for c in creatures if not c.is_carnivore)
     carn = len(creatures) - herb
     with_vision = [c for c in creatures if c.vision_range > 0]
-    avg_vision = sum(c.effective_vision_range() for c in with_vision) / len(with_vision) if with_vision else 0
+    avg_dist = sum(c.effective_vision_range() for c in with_vision) / len(with_vision) if with_vision else 0
     avg_angle = sum(c.vision_angle for c in with_vision) / len(with_vision) if with_vision else 0
-    avg_speed = sum(c.effective_speed() for c in creatures) / len(creatures)
-    log_event(
-        'stat',
-        f'Stav: býl={herb}, mas={carn}, jídlo={len(foods)}, '
-        f'zrak {len(with_vision)}/{len(creatures)} '
-        f'(dálka={avg_vision:.1f}, úhel={math.degrees(2 * avg_angle):.0f}°), '
-        f'rychl={avg_speed:.2f}',
-    )
+    event.update({
+        'herb': herb,
+        'carn': carn,
+        'visionCount': len(with_vision),
+        'visionDist': avg_dist,
+        'visionAngleDeg': math.degrees(2 * avg_angle),
+    })
+    _events.append(event)
 
 
 def normalize_angle(a):
