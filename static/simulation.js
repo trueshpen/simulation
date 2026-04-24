@@ -135,12 +135,11 @@ function renderCreatureList() {
 function appendLogs(events) {
     const list = logList();
     if (!list || !events.length) return;
-    const scroller = list.closest('.log-scroll');
-    const nearBottom = scroller
-        ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4
-        : true;
+    // Newest at top: reverse batch order so the most recent event ends
+    // up at index 0 after insertion at the front of the table.
     const frag = document.createDocumentFragment();
-    for (const e of events) {
+    for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
         if (e.type !== 'stat') continue;
         const tr = document.createElement('tr');
         tr.className = 'log-stat';
@@ -156,11 +155,10 @@ function appendLogs(events) {
         }
         frag.appendChild(tr);
     }
-    list.appendChild(frag);
+    list.insertBefore(frag, list.firstChild);
     while (list.children.length > MAX_LOG_ENTRIES) {
-        list.removeChild(list.firstChild);
+        list.removeChild(list.lastChild);
     }
-    if (nearBottom && scroller) scroller.scrollTop = scroller.scrollHeight;
 }
 
 socket.on('simulation_state', function (data) {
