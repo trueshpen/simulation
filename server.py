@@ -35,6 +35,7 @@ DIRECTION_CHANGE_COST = 0.05
 FOOD_ENERGY = 20
 PREY_ENERGY = 50
 EAT_COOLDOWN = 5.0  # seconds after a meal before a creature eats again ("sytost")
+HUNGRY_ENERGY = 50  # below this, creature only chases food (ignores potential mates)
 
 # Carnivores are larger, stronger predators — they get a runtime multiplier
 # on top of their genetic speed/vision. Herbivores use 1.0.
@@ -228,9 +229,34 @@ class Creature:
             return self.is_adult and not self.is_old
         return self.is_old
 
+    def is_hungry(self):
+        return self.energy < HUNGRY_ENERGY
+
+    def can_mate(self):
+        """Whether this creature is eligible to seek or accept a mate."""
+        if not self.is_adult:
+            return False
+        # Old herbivores can't reproduce; old carnivores can.
+        if self.is_old and not self.is_carnivore:
+            return False
+        return True
+
     def find_target(self, food_list, creature_list):
+        """Pick who/what to walk toward this tick.
+        Hungry creatures only look for food. Satisfied creatures prefer a
+        visible mate and fall back to food if no mate is in sight.
+        """
         if self.vision_range <= 0:
             return None
+
+        food_target = self._scan_food(food_list, creature_list)
+        if self.is_hungry():
+            return food_target
+
+        mate_target = self._scan_mate(creature_list)
+        return mate_target if mate_target is not None else food_target
+
+    def _scan_food(self, food_list, creature_list):
         best = None
         best_dist = float('inf')
         if self.is_carnivore:
@@ -251,6 +277,26 @@ class Creature:
                 if d < best_dist:
                     best_dist = d
                     best = (food['x'], food['y'])
+        return best
+
+    def _scan_mate(self, creature_list):
+        if not self.can_mate():
+            return None
+        best = None
+        best_dist = float('inf')
+        for other in creature_list:
+            if other is self or not other.alive:
+                continue
+            if other.is_carnivore != self.is_carnivore:
+                continue
+            if not other.can_mate():
+                continue
+            if not self.can_see(other.x, other.y):
+                continue
+            d = math.hypot(other.x - self.x, other.y - self.y)
+            if d < best_dist:
+                best_dist = d
+                best = (other.x, other.y)
         return best
 
     def try_eat(self, food_list, creature_list):
