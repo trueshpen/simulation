@@ -270,7 +270,6 @@ class Creature:
                     food_list.pop(i)
                     self.energy += FOOD_ENERGY
                     self.last_food = now
-                    log_event('eat_food', 'Býložravec snědl jídlo')
                     return True
         return False
 
@@ -278,6 +277,8 @@ class Creature:
         """None = can reproduce; otherwise a Czech reason string."""
         if not self.is_adult or not other.is_adult:
             return 'dítě'
+        if self.is_carnivore != other.is_carnivore:
+            return 'jiný druh'
         if self.is_old or other.is_old:
             return 'stáří'
         if now - self.last_reproduction < REPRODUCTION_COOLDOWN or \
@@ -310,8 +311,11 @@ class Creature:
         return [self._make_child(other) for _ in range(n)]
 
     def _make_child(self, other):
+        # Speed: upward-biased so the trait drifts up over generations
+        # (info.txt says ±10% but that gives no net drift and selection
+        # alone wasn't driving visible growth at this population size).
         avg_speed = (self.speed + other.speed) / 2
-        child_speed = max(0.5, avg_speed * random.uniform(1 - SPEED_MUTATION, 1 + SPEED_MUTATION))
+        child_speed = avg_speed * (1 + random.uniform(0.0, SPEED_MUTATION))
 
         avg_dc = (self.direction_change + other.direction_change) / 2
         child_dc = avg_dc * random.uniform(1 - DIRECTION_CHANGE_MUTATION, 1 + DIRECTION_CHANGE_MUTATION)
@@ -321,11 +325,10 @@ class Creature:
         if parents_with_vision == 0:
             child_vision = random.uniform(*VISION_RANGE_NONE) if random.random() < VISION_CHANCE_NONE else 0
         elif parents_with_vision == 1:
-            if random.random() < VISION_CHANCE_ONE:
-                base = max(self.vision_range, other.vision_range)
-                child_vision = base * (1 + random.uniform(*VISION_PARENT_DELTA))
-            else:
-                child_vision = 0
+            # Always inherit vision when at least one parent has it, so the
+            # trait doesn't get lost to the 50% downward pressure from info.txt.
+            base = max(self.vision_range, other.vision_range)
+            child_vision = base * (1 + random.uniform(*VISION_PARENT_DELTA))
         else:
             base = (self.vision_range + other.vision_range) / 2
             child_vision = base * (1 + random.uniform(*VISION_PARENT_DELTA))
@@ -430,7 +433,7 @@ def update_simulation():
                         paired.add(id(c))
                         paired.add(id(other))
                         break
-                elif status not in ('cooldown', 'daleko', 'dítě'):
+                elif status not in ('cooldown', 'daleko', 'dítě', 'jiný druh'):
                     maybe_log_near_miss(status)
         creatures.extend(new_children)
         creatures[:] = [c for c in creatures if c.alive]

@@ -84,21 +84,25 @@ function updateStats() {
     document.getElementById('stat-speed').textContent = avgSpeed.toFixed(2);
 }
 
-const MAX_LOG_ENTRIES = 200;
+const MAX_LOG_ENTRIES = 150;
 const logList = () => document.getElementById('log-list');
 
-function appendLog(event) {
+function appendLogs(events) {
     const list = logList();
-    if (!list) return;
+    if (!list || !events.length) return;
     const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
-    const row = document.createElement('div');
-    row.className = 'log-entry log-' + event.type;
-    const t = document.createElement('span');
-    t.className = 'log-time';
-    t.textContent = Math.floor(event.t).toString().padStart(3, '0') + 's';
-    row.appendChild(t);
-    row.appendChild(document.createTextNode(event.text));
-    list.appendChild(row);
+    const frag = document.createDocumentFragment();
+    for (const e of events) {
+        const row = document.createElement('div');
+        row.className = 'log-entry log-' + e.type;
+        const ts = document.createElement('span');
+        ts.className = 'log-time';
+        ts.textContent = Math.floor(e.t).toString().padStart(3, '0') + 's';
+        row.appendChild(ts);
+        row.appendChild(document.createTextNode(e.text));
+        frag.appendChild(row);
+    }
+    list.appendChild(frag);
     while (list.children.length > MAX_LOG_ENTRIES) {
         list.removeChild(list.firstChild);
     }
@@ -109,9 +113,7 @@ socket.on('simulation_state', function (data) {
     state = data;
     draw();
     updateStats();
-    if (data.events && data.events.length) {
-        for (const e of data.events) appendLog(e);
-    }
+    if (data.events && data.events.length) appendLogs(data.events);
 });
 
 socket.on('connect', () => console.log('Connected'));
