@@ -12,10 +12,10 @@ app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # World
-MAP_SIZE = 800
-MAX_FOOD = 350
-FOOD_SPAWN_RATE = 0.35
-INITIAL_FOOD = 100
+MAP_SIZE = 1000
+MAX_FOOD = 550
+FOOD_SPAWN_RATE = 0.70
+INITIAL_FOOD = 160
 INITIAL_CREATURES = 10
 INITIAL_SPEED_RANGE = (2.2, 4.4)
 
@@ -42,7 +42,7 @@ REPRODUCTION_RADIUS = 50
 
 # Initial spawn: cluster creatures near map center so they can find
 # each other to reproduce before dying. info.txt doesn't pin this down.
-INITIAL_CLUSTER_RADIUS = 150
+INITIAL_CLUSTER_RADIUS = 190
 
 # Mutation rules
 CARNIVORE_CHANCE = 0.15

@@ -2,21 +2,24 @@ const socket = io();
 const canvas = document.getElementById('simulationCanvas');
 const ctx = canvas.getContext('2d');
 
-const MAP_SIZE = 800;
+const MAP_SIZE = 1000;
 const DEFAULT_VISION_HALF_CONE = Math.PI / 4;
 const CREATURE_SIZE = 5;
 
 let state = { creatures: [], food: [], simulationTime: 0 };
-let isRunning = true;
 
 function resizeCanvas() {
-    const padding = 40;
+    // Reserve space: 260px left for creature list, 40px page padding,
+    // 80px horizontal breathing room on the right.
+    const reservedW = 260 + 40 + 80;
+    // Reserve space below for stats (~60) + log (~260) + gaps.
+    const reservedH = 360;
     const maxSize = Math.min(
-        window.innerWidth - padding,
-        window.innerHeight - 260,
+        window.innerWidth - reservedW,
+        window.innerHeight - reservedH,
         MAP_SIZE
     );
-    const size = Math.max(300, maxSize);
+    const size = Math.max(400, maxSize);
     canvas.width = size;
     canvas.height = size;
     const scale = size / MAP_SIZE;
@@ -159,21 +162,7 @@ window.addEventListener('load', () => {
     resizeCanvas();
     window.addEventListener('resize', () => { resizeCanvas(); draw(); });
 
-    const startBtn = document.getElementById('startButton');
     const restartBtn = document.getElementById('restartButton');
-
-    startBtn.addEventListener('click', () => {
-        if (!isRunning) {
-            isRunning = true;
-            startBtn.textContent = 'Zastavit';
-            socket.emit('start_simulation');
-        } else {
-            isRunning = false;
-            startBtn.textContent = 'Spustit';
-            socket.emit('stop_simulation');
-        }
-    });
-
     restartBtn.addEventListener('click', () => {
         const list = logList();
         if (list) list.innerHTML = '';

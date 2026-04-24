@@ -8,17 +8,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-    <h1>Evoluční simulace</h1>
-    <div class="controls">
-        <button id="startButton">Zastavit</button>
-        <button id="restartButton">Restartovat</button>
-    </div>
+    <div class="title">Evoluční simulace</div>
     <div class="sim-area">
         <div class="creature-list">
             <div class="creature-list-header">Tvorové</div>
             <div id="creature-list-body"></div>
         </div>
-        <canvas id="simulationCanvas" width="800" height="800"></canvas>
+        <div class="canvas-area">
+            <button id="restartButton" title="Restartovat simulaci">↻ Restart</button>
+            <canvas id="simulationCanvas" width="1000" height="1000"></canvas>
+        </div>
     </div>
     <div class="stats">
         <div><b>Čas:</b> <span id="stat-time">0s</span></div>
