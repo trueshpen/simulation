@@ -13,7 +13,13 @@
         <button id="startButton">Zastavit</button>
         <button id="restartButton">Restartovat</button>
     </div>
-    <canvas id="simulationCanvas" width="800" height="800"></canvas>
+    <div class="sim-area">
+        <div class="creature-list">
+            <div class="creature-list-header">Tvorové</div>
+            <div id="creature-list-body"></div>
+        </div>
+        <canvas id="simulationCanvas" width="800" height="800"></canvas>
+    </div>
     <div class="stats">
         <div><b>Čas:</b> <span id="stat-time">0s</span></div>
         <div><b>Býložravci:</b> <span id="stat-herbivores">0</span></div>

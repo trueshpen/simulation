@@ -28,7 +28,7 @@ REPRODUCTION_COOLDOWN = 2
 # Energy costs / rewards
 REPRODUCTION_COST = 20
 MOVEMENT_COST = 0.1
-VISION_COST = 0.2
+VISION_COST = 0.02  # per tick per (range * angle / default_angle)
 SPEED_COST = 0.1
 DIRECTION_CHANGE_COST = 0.05
 FOOD_ENERGY = 20
@@ -47,15 +47,18 @@ INITIAL_CLUSTER_RADIUS = 150
 # Mutation rules
 CARNIVORE_CHANCE = 0.15
 VISION_CHANCE_NONE = 0.1
-VISION_CHANCE_ONE = 0.5
-VISION_CHANCE_BOTH = 1.0
 VISION_RANGE_NONE = (5, 10)
-VISION_PARENT_DELTA = (0.05, 0.2)
-SPEED_MUTATION = 0.1
 DIRECTION_CHANGE_MUTATION = 0.05
 
-# Vision geometry: full cone = 90 degrees, so half-cone = 45 degrees
-VISION_HALF_CONE = math.pi / 4
+# Per-trait mutation: child = avg_of_parents * uniform(MUTATION_LOW, MUTATION_HIGH)
+MUTATION_LOW = 0.9
+MUTATION_HIGH = 1.2
+
+# Vision geometry
+DEFAULT_VISION_ANGLE = math.pi / 4         # 45 deg half-cone = 90 deg total
+MAX_VISION_ANGLE = 5 * math.pi / 12        # 75 deg half-cone = 150 deg total
+MIN_VISION_ANGLE = math.pi / 12            # 15 deg half-cone = 30 deg total
+MAX_VISION_RANGE = 50                      # ~5x the old stable equilibrium
 
 # Litter size distribution: 1 child 50%, 2 30%, 3 15%, 4 5%
 LITTER_CUMULATIVE = [(0.50, 1), (0.80, 2), (0.95, 3), (1.00, 4)]
@@ -120,12 +123,14 @@ def maybe_log_stats():
     carn = len(creatures) - herb
     with_vision = [c for c in creatures if c.vision_range > 0]
     avg_vision = sum(c.vision_range for c in with_vision) / len(with_vision) if with_vision else 0
+    avg_angle = sum(c.vision_angle for c in with_vision) / len(with_vision) if with_vision else 0
     avg_speed = sum(c.speed for c in creatures) / len(creatures)
     log_event(
         'stat',
-        f'Stav: býložravci={herb}, masožravci={carn}, jídlo={len(foods)}, '
-        f'zrak {len(with_vision)}/{len(creatures)} (prům={avg_vision:.1f}), '
-        f'prům. rychlost={avg_speed:.2f}',
+        f'Stav: býl={herb}, mas={carn}, jídlo={len(foods)}, '
+        f'zrak {len(with_vision)}/{len(creatures)} '
+        f'(dálka={avg_vision:.1f}, úhel={math.degrees(2 * avg_angle):.0f}°), '
+        f'rychl={avg_speed:.2f}',
     )
 
 
@@ -142,12 +147,14 @@ def spawn_food():
 
 
 class Creature:
-    def __init__(self, x, y, speed=3, direction_change=0.2, vision_range=0, is_carnivore=False):
+    def __init__(self, x, y, speed=3, direction_change=0.2,
+                 vision_range=0, vision_angle=0, is_carnivore=False):
         self.x = x
         self.y = y
         self.speed = speed
         self.direction_change = direction_change
         self.vision_range = vision_range
+        self.vision_angle = vision_angle
         self.is_carnivore = is_carnivore
         self.energy = 100
         self.direction = random.uniform(-math.pi, math.pi)
@@ -196,7 +203,10 @@ class Creature:
 
         self.energy -= MOVEMENT_COST * self.speed * mult
         if self.vision_range > 0:
-            self.energy -= VISION_COST * self.vision_range
+            # Cost scales with both range and angle (normalized so that a
+            # default 90-degree cone at range R costs VISION_COST * R,
+            # matching the old flat-rate formula).
+            self.energy -= VISION_COST * self.vision_range * (self.vision_angle / DEFAULT_VISION_ANGLE)
         self.energy -= SPEED_COST * self.speed
         self.energy -= DIRECTION_CHANGE_COST * self.direction_change
         if self.energy < 0:
@@ -211,7 +221,7 @@ class Creature:
         if distance > self.vision_range:
             return False
         diff = abs(normalize_angle(math.atan2(dy, dx) - self.direction))
-        return diff <= VISION_HALF_CONE
+        return diff <= self.vision_angle
 
     def is_prey_for(self, predator):
         """Whether `self` can be eaten by `predator` (a carnivore)."""
@@ -311,27 +321,37 @@ class Creature:
         return [self._make_child(other) for _ in range(n)]
 
     def _make_child(self, other):
-        # Speed: upward-biased so the trait drifts up over generations
-        # (info.txt says ±10% but that gives no net drift and selection
-        # alone wasn't driving visible growth at this population size).
+        # All continuous traits mutate via parent-average * uniform(0.9, 1.2):
+        # -10% to +20%, average +5%/gen drift, so traits grow but can also
+        # occasionally dip. User-specified.
         avg_speed = (self.speed + other.speed) / 2
-        child_speed = avg_speed * (1 + random.uniform(0.0, SPEED_MUTATION))
+        child_speed = avg_speed * random.uniform(MUTATION_LOW, MUTATION_HIGH)
 
         avg_dc = (self.direction_change + other.direction_change) / 2
         child_dc = avg_dc * random.uniform(1 - DIRECTION_CHANGE_MUTATION, 1 + DIRECTION_CHANGE_MUTATION)
         child_dc = max(0.1, min(0.3, child_dc))
 
-        parents_with_vision = sum(1 for p in (self, other) if p.vision_range > 0)
-        if parents_with_vision == 0:
-            child_vision = random.uniform(*VISION_RANGE_NONE) if random.random() < VISION_CHANCE_NONE else 0
-        elif parents_with_vision == 1:
-            # Always inherit vision when at least one parent has it, so the
-            # trait doesn't get lost to the 50% downward pressure from info.txt.
-            base = max(self.vision_range, other.vision_range)
-            child_vision = base * (1 + random.uniform(*VISION_PARENT_DELTA))
+        vision_parents = [p for p in (self, other) if p.vision_range > 0]
+        if not vision_parents:
+            if random.random() < VISION_CHANCE_NONE:
+                child_vision = random.uniform(*VISION_RANGE_NONE)
+                child_vangle = DEFAULT_VISION_ANGLE
+            else:
+                child_vision = 0
+                child_vangle = 0
+        elif len(vision_parents) == 1:
+            parent = vision_parents[0]
+            child_vision = parent.vision_range * random.uniform(MUTATION_LOW, MUTATION_HIGH)
+            child_vangle = parent.vision_angle * random.uniform(MUTATION_LOW, MUTATION_HIGH)
         else:
-            base = (self.vision_range + other.vision_range) / 2
-            child_vision = base * (1 + random.uniform(*VISION_PARENT_DELTA))
+            avg_vision = (self.vision_range + other.vision_range) / 2
+            avg_vangle = (self.vision_angle + other.vision_angle) / 2
+            child_vision = avg_vision * random.uniform(MUTATION_LOW, MUTATION_HIGH)
+            child_vangle = avg_vangle * random.uniform(MUTATION_LOW, MUTATION_HIGH)
+
+        if child_vision > 0:
+            child_vision = min(child_vision, MAX_VISION_RANGE)
+            child_vangle = max(MIN_VISION_ANGLE, min(MAX_VISION_ANGLE, child_vangle))
 
         if self.is_carnivore and other.is_carnivore:
             child_carn = True
@@ -344,6 +364,7 @@ class Creature:
             speed=child_speed,
             direction_change=child_dc,
             vision_range=child_vision,
+            vision_angle=child_vangle,
             is_carnivore=child_carn,
         )
 
@@ -460,7 +481,8 @@ def current_state():
     state = {
         'creatures': [{
             'x': c.x, 'y': c.y, 'direction': c.direction,
-            'isCarnivore': c.is_carnivore, 'vision': c.vision_range,
+            'isCarnivore': c.is_carnivore,
+            'vision': c.vision_range, 'visionAngle': c.vision_angle,
             'speed': c.speed, 'directionChange': c.direction_change,
             'age': now - c.creation_time, 'isAdult': c.is_adult, 'isOld': c.is_old,
             'energy': c.energy,

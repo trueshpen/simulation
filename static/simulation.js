@@ -3,7 +3,7 @@ const canvas = document.getElementById('simulationCanvas');
 const ctx = canvas.getContext('2d');
 
 const MAP_SIZE = 800;
-const VISION_HALF_CONE = Math.PI / 4;
+const DEFAULT_VISION_HALF_CONE = Math.PI / 4;
 const CREATURE_SIZE = 5;
 
 let state = { creatures: [], food: [], simulationTime: 0 };
@@ -43,11 +43,12 @@ function draw() {
 
     for (const c of state.creatures) {
         if (c.vision > 0) {
+            const half = c.visionAngle || DEFAULT_VISION_HALF_CONE;
             ctx.fillStyle = 'rgba(120, 120, 120, 0.1)';
             ctx.beginPath();
             ctx.moveTo(c.x, c.y);
             const d = c.direction || 0;
-            ctx.arc(c.x, c.y, c.vision, d - VISION_HALF_CONE, d + VISION_HALF_CONE);
+            ctx.arc(c.x, c.y, c.vision, d - half, d + half);
             ctx.closePath();
             ctx.fill();
         }
@@ -86,6 +87,36 @@ function updateStats() {
 
 const MAX_LOG_ENTRIES = 150;
 const logList = () => document.getElementById('log-list');
+const listBody = () => document.getElementById('creature-list-body');
+
+const LIST_RENDER_INTERVAL_MS = 500;
+let lastListRender = 0;
+
+function creatureColor(c) {
+    if (c.isCarnivore) return c.isOld ? '#8b0000' : '#d32f2f';
+    return c.isOld ? '#1b5e20' : '#43a047';
+}
+
+function creatureRowHTML(c, i) {
+    const color = creatureColor(c);
+    const species = c.isCarnivore ? 'M' : 'B';
+    const stage = c.isOld ? ' starý' : (!c.isAdult ? ' dítě' : '');
+    const vis = c.vision > 0
+        ? `zrak <b>${c.vision.toFixed(1)}</b>px / <b>${Math.round((c.visionAngle || DEFAULT_VISION_HALF_CONE) * 2 * 180 / Math.PI)}°</b>`
+        : '<small>slepý</small>';
+    return '<div class="creature-row">'
+        + `<div class="creature-dot" style="background:${color}"></div>`
+        + '<div class="creature-stats">'
+        + `<b>#${i + 1}</b>${species}${stage} &nbsp; `
+        + `rych. <b>${c.speed.toFixed(2)}</b> &nbsp; ${vis}`
+        + '</div></div>';
+}
+
+function renderCreatureList() {
+    const body = listBody();
+    if (!body) return;
+    body.innerHTML = state.creatures.map(creatureRowHTML).join('');
+}
 
 function appendLogs(events) {
     const list = logList();
@@ -114,6 +145,12 @@ socket.on('simulation_state', function (data) {
     draw();
     updateStats();
     if (data.events && data.events.length) appendLogs(data.events);
+
+    const now = performance.now();
+    if (now - lastListRender > LIST_RENDER_INTERVAL_MS) {
+        lastListRender = now;
+        renderCreatureList();
+    }
 });
 
 socket.on('connect', () => console.log('Connected'));
@@ -142,6 +179,8 @@ window.addEventListener('load', () => {
     restartBtn.addEventListener('click', () => {
         const list = logList();
         if (list) list.innerHTML = '';
+        const lb = listBody();
+        if (lb) lb.innerHTML = '';
         socket.emit('init_simulation');
     });
 });
