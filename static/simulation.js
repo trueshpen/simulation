@@ -104,21 +104,16 @@ window.addEventListener('load', () => {
     startBtn.addEventListener('click', () => {
         if (!isRunning) {
             isRunning = true;
-            startBtn.textContent = 'Stop';
+            startBtn.textContent = 'Zastavit';
             socket.emit('start_simulation');
         } else {
             isRunning = false;
-            startBtn.textContent = 'Start';
+            startBtn.textContent = 'Spustit';
             socket.emit('stop_simulation');
         }
     });
 
     restartBtn.addEventListener('click', () => {
         socket.emit('init_simulation');
-        if (isRunning) {
-            isRunning = false;
-            startBtn.textContent = 'Start';
-            socket.emit('stop_simulation');
-        }
     });
 });

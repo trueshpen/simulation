@@ -1,26 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolution Simulation</title>
+    <title>Evoluční simulace</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-    <h1>Evolution Simulation</h1>
+    <h1>Evoluční simulace</h1>
     <div class="controls">
-        <button id="startButton">Start</button>
-        <button id="restartButton">Restart</button>
+        <button id="startButton">Spustit</button>
+        <button id="restartButton">Restartovat</button>
     </div>
     <canvas id="simulationCanvas" width="800" height="800"></canvas>
     <div class="stats">
-        <div><b>Time:</b> <span id="stat-time">0s</span></div>
-        <div><b>Herbivores:</b> <span id="stat-herbivores">0</span></div>
-        <div><b>Carnivores:</b> <span id="stat-carnivores">0</span></div>
-        <div><b>Food:</b> <span id="stat-food">0</span></div>
-        <div><b>Avg. vision:</b> <span id="stat-vision">0</span></div>
-        <div><b>Avg. speed:</b> <span id="stat-speed">0</span></div>
+        <div><b>Čas:</b> <span id="stat-time">0s</span></div>
+        <div><b>Býložravci:</b> <span id="stat-herbivores">0</span></div>
+        <div><b>Masožravci:</b> <span id="stat-carnivores">0</span></div>
+        <div><b>Jídlo:</b> <span id="stat-food">0</span></div>
+        <div><b>Průměrný zrak:</b> <span id="stat-vision">0</span></div>
+        <div><b>Průměrná rychlost:</b> <span id="stat-speed">0</span></div>
     </div>
     <script src="{{ url_for('static', filename='simulation.js') }}"></script>
 </body>

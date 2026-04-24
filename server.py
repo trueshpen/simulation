@@ -34,8 +34,8 @@ FOOD_ENERGY = 20
 PREY_ENERGY = 50
 
 # Interaction radii
-EAT_RADIUS = 10
-ATTACK_RADIUS = 12
+EAT_RADIUS = 20
+ATTACK_RADIUS = 15
 REPRODUCTION_RADIUS = 30
 
 # Mutation rules
@@ -373,6 +373,16 @@ def handle_connect():
 def handle_init():
     logger.info('Re-initializing simulation')
     initialize_simulation()
+    socketio.emit('simulation_state', {
+        'creatures': [{
+            'x': c.x, 'y': c.y, 'direction': c.direction,
+            'isCarnivore': c.is_carnivore, 'vision': c.vision_range,
+            'speed': c.speed, 'directionChange': c.direction_change,
+            'age': 0, 'isAdult': False, 'isOld': False, 'energy': c.energy,
+        } for c in creatures],
+        'food': foods,
+        'simulationTime': 0,
+    })
 
 
 @socketio.on('start_simulation')
