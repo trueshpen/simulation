@@ -34,10 +34,10 @@ function draw() {
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, MAP_SIZE, MAP_SIZE);
 
-    ctx.fillStyle = '#2e7d32';
+    ctx.fillStyle = '#29b6f6';
     for (const f of state.food) {
         ctx.beginPath();
-        ctx.arc(f.x, f.y, 2.5, 0, Math.PI * 2);
+        ctx.arc(f.x, f.y, 3, 0, Math.PI * 2);
         ctx.fill();
     }
 

@@ -51,6 +51,17 @@ DIRECTION_CHANGE_MUTATION = 0.05
 # Vision geometry: full cone = 90 degrees, so half-cone = 45 degrees
 VISION_HALF_CONE = math.pi / 4
 
+# Litter size distribution: 1 child 50%, 2 30%, 3 15%, 4 5%
+LITTER_CUMULATIVE = [(0.50, 1), (0.80, 2), (0.95, 3), (1.00, 4)]
+
+
+def sample_litter_size():
+    r = random.random()
+    for threshold, count in LITTER_CUMULATIVE:
+        if r < threshold:
+            return count
+    return 1
+
 # Globals
 creatures = []
 foods = []
@@ -212,7 +223,7 @@ class Creature:
     def reproduce(self, other):
         now = time.time()
         if not self.can_reproduce_with(other, now):
-            return None
+            return []
 
         self.energy -= REPRODUCTION_COST
         other.energy -= REPRODUCTION_COST
@@ -221,6 +232,9 @@ class Creature:
         self.reproduction_count += 1
         other.reproduction_count += 1
 
+        return [self._make_child(other) for _ in range(sample_litter_size())]
+
+    def _make_child(self, other):
         avg_speed = (self.speed + other.speed) / 2
         child_speed = max(0.5, avg_speed * random.uniform(1 - SPEED_MUTATION, 1 + SPEED_MUTATION))
 
@@ -247,8 +261,8 @@ class Creature:
             child_carn = random.random() < CARNIVORE_CHANCE
 
         return Creature(
-            x=(self.x + other.x) / 2,
-            y=(self.y + other.y) / 2,
+            x=(self.x + other.x) / 2 + random.uniform(-5, 5),
+            y=(self.y + other.y) / 2 + random.uniform(-5, 5),
             speed=child_speed,
             direction_change=child_dc,
             vision_range=child_vision,
@@ -323,9 +337,9 @@ def update_simulation():
                 if other is c or id(other) in paired or not other.alive:
                     continue
                 if c.can_reproduce_with(other, now):
-                    child = c.reproduce(other)
-                    if child is not None:
-                        new_children.append(child)
+                    children = c.reproduce(other)
+                    if children:
+                        new_children.extend(children)
                         paired.add(id(c))
                         paired.add(id(other))
                         break
@@ -371,8 +385,11 @@ def handle_connect():
 
 @socketio.on('init_simulation')
 def handle_init():
+    global simulation_start_time
     logger.info('Re-initializing simulation')
     initialize_simulation()
+    if simulation_running:
+        simulation_start_time = time.time()
     socketio.emit('simulation_state', {
         'creatures': [{
             'x': c.x, 'y': c.y, 'direction': c.direction,
