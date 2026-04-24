@@ -84,10 +84,34 @@ function updateStats() {
     document.getElementById('stat-speed').textContent = avgSpeed.toFixed(2);
 }
 
+const MAX_LOG_ENTRIES = 200;
+const logList = () => document.getElementById('log-list');
+
+function appendLog(event) {
+    const list = logList();
+    if (!list) return;
+    const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
+    const row = document.createElement('div');
+    row.className = 'log-entry log-' + event.type;
+    const t = document.createElement('span');
+    t.className = 'log-time';
+    t.textContent = Math.floor(event.t).toString().padStart(3, '0') + 's';
+    row.appendChild(t);
+    row.appendChild(document.createTextNode(event.text));
+    list.appendChild(row);
+    while (list.children.length > MAX_LOG_ENTRIES) {
+        list.removeChild(list.firstChild);
+    }
+    if (nearBottom) list.scrollTop = list.scrollHeight;
+}
+
 socket.on('simulation_state', function (data) {
     state = data;
     draw();
     updateStats();
+    if (data.events && data.events.length) {
+        for (const e of data.events) appendLog(e);
+    }
 });
 
 socket.on('connect', () => console.log('Connected'));
@@ -114,6 +138,8 @@ window.addEventListener('load', () => {
     });
 
     restartBtn.addEventListener('click', () => {
+        const list = logList();
+        if (list) list.innerHTML = '';
         socket.emit('init_simulation');
     });
 });
