@@ -13,8 +13,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # World
 MAP_SIZE = 800
-MAX_FOOD = 200
-FOOD_SPAWN_RATE = 0.22
+MAX_FOOD = 250
+FOOD_SPAWN_RATE = 0.25
 INITIAL_FOOD = 100
 INITIAL_CREATURES = 10
 INITIAL_SPEED_RANGE = (2.2, 4.4)
@@ -37,7 +37,11 @@ PREY_ENERGY = 50
 # Interaction radii
 EAT_RADIUS = 20
 ATTACK_RADIUS = 15
-REPRODUCTION_RADIUS = 30
+REPRODUCTION_RADIUS = 50
+
+# Initial spawn: cluster creatures near map center so they can find
+# each other to reproduce before dying. info.txt doesn't pin this down.
+INITIAL_CLUSTER_RADIUS = 150
 
 # Mutation rules
 CARNIVORE_CHANCE = 0.15
@@ -140,6 +144,8 @@ class Creature:
             self.energy -= VISION_COST * self.vision_range
         self.energy -= SPEED_COST * self.speed
         self.energy -= DIRECTION_CHANGE_COST * self.direction_change
+        if self.energy < 0:
+            self.energy = 0
 
     def can_see(self, target_x, target_y):
         if self.vision_range <= 0:
@@ -273,10 +279,11 @@ class Creature:
 
 def initialize_simulation():
     global creatures, foods, simulation_start_time
+    cx, cy = MAP_SIZE / 2, MAP_SIZE / 2
     creatures = [
         Creature(
-            x=random.uniform(0, MAP_SIZE),
-            y=random.uniform(0, MAP_SIZE),
+            x=cx + random.uniform(-INITIAL_CLUSTER_RADIUS, INITIAL_CLUSTER_RADIUS),
+            y=cy + random.uniform(-INITIAL_CLUSTER_RADIUS, INITIAL_CLUSTER_RADIUS),
             speed=random.uniform(*INITIAL_SPEED_RANGE),
             direction_change=random.uniform(0.1, 0.3),
             vision_range=0,
@@ -318,9 +325,6 @@ def update_simulation():
                 c.alive = False
                 continue
             if (now - c.last_food) > STARVATION_TIME:
-                c.alive = False
-                continue
-            if c.energy <= 0:
                 c.alive = False
                 continue
 
