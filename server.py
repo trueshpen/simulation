@@ -66,6 +66,7 @@ DEFAULT_VISION_ANGLE = math.pi / 4         # 45 deg half-cone = 90 deg total
 MAX_VISION_ANGLE = 5 * math.pi / 12        # 75 deg half-cone = 150 deg total
 MIN_VISION_ANGLE = math.pi / 12            # 15 deg half-cone = 30 deg total
 MAX_VISION_RANGE = 50                      # ~5x the old stable equilibrium
+MAX_SPEED = 15                              # cap so long runs don't explode to 100+
 
 # Litter size distribution: 1 child 50%, 2 30%, 3 15%, 4 5%
 LITTER_CUMULATIVE = [(0.50, 1), (0.80, 2), (0.95, 3), (1.00, 4)]
@@ -376,6 +377,7 @@ class Creature:
         # occasionally dip. User-specified.
         avg_speed = (self.speed + other.speed) / 2
         child_speed = avg_speed * random.uniform(MUTATION_LOW, MUTATION_HIGH)
+        child_speed = min(child_speed, MAX_SPEED)
 
         avg_dc = (self.direction_change + other.direction_change) / 2
         child_dc = avg_dc * random.uniform(1 - DIRECTION_CHANGE_MUTATION, 1 + DIRECTION_CHANGE_MUTATION)

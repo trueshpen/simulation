@@ -135,6 +135,8 @@ function renderCreatureList() {
 function appendLogs(events) {
     const list = logList();
     if (!list || !events.length) return;
+    const scroller = list.closest('.log-scroll');
+
     // Newest at top: reverse batch order so the most recent event ends
     // up at index 0 after insertion at the front of the table.
     const frag = document.createDocumentFragment();
@@ -155,9 +157,21 @@ function appendLogs(events) {
         }
         frag.appendChild(tr);
     }
+
+    const heightBefore = scroller ? scroller.scrollHeight : 0;
+    const wasScrolled = scroller ? scroller.scrollTop > 4 : false;
+
     list.insertBefore(frag, list.firstChild);
     while (list.children.length > MAX_LOG_ENTRIES) {
         list.removeChild(list.lastChild);
+    }
+
+    // If user had scrolled away from the top to read history, keep their
+    // viewport anchored to the same row instead of letting new entries
+    // shove the visible content down.
+    if (scroller && wasScrolled) {
+        const delta = scroller.scrollHeight - heightBefore;
+        if (delta > 0) scroller.scrollTop += delta;
     }
 }
 
