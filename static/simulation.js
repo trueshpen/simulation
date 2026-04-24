@@ -9,11 +9,10 @@ const CREATURE_SIZE = 5;
 let state = { creatures: [], food: [], simulationTime: 0 };
 
 function resizeCanvas() {
-    // Reserve space: 260px left for creature list, 40px page padding,
-    // 80px horizontal breathing room on the right.
-    const reservedW = 260 + 40 + 80;
-    // Reserve space below for stats (~60) + log (~260) + gaps.
-    const reservedH = 360;
+    // Reserve space: 2 × 225 list + 3 × 14 gaps + 2 × 16 body padding.
+    const reservedW = 2 * 225 + 3 * 14 + 2 * 16 + 20;
+    // Reserve below: top bar (~44) + stats (~72) + log (~260) + gaps + body padding.
+    const reservedH = 44 + 72 + 260 + 3 * 14 + 2 * 16 + 20;
     const maxSize = Math.min(
         window.innerWidth - reservedW,
         window.innerHeight - reservedH,
@@ -90,7 +89,8 @@ function updateStats() {
 
 const MAX_LOG_ENTRIES = 150;
 const logList = () => document.getElementById('log-list');
-const listBody = () => document.getElementById('creature-list-body');
+const herbListBody = () => document.getElementById('herb-list-body');
+const carnListBody = () => document.getElementById('carn-list-body');
 
 const LIST_RENDER_INTERVAL_MS = 500;
 let lastListRender = 0;
@@ -119,10 +119,17 @@ function creatureRowHTML(c) {
 }
 
 function renderCreatureList() {
-    const body = listBody();
-    if (!body) return;
+    const herb = herbListBody();
+    const carn = carnListBody();
+    if (!herb || !carn) return;
     const sorted = state.creatures.slice().sort((a, b) => (a.id || 0) - (b.id || 0));
-    body.innerHTML = sorted.map(creatureRowHTML).join('');
+    const herbRows = [];
+    const carnRows = [];
+    for (const c of sorted) {
+        (c.isCarnivore ? carnRows : herbRows).push(creatureRowHTML(c));
+    }
+    herb.innerHTML = herbRows.join('');
+    carn.innerHTML = carnRows.join('');
 }
 
 function appendLogs(events) {
@@ -172,8 +179,10 @@ window.addEventListener('load', () => {
     restartBtn.addEventListener('click', () => {
         const list = logList();
         if (list) list.innerHTML = '';
-        const lb = listBody();
-        if (lb) lb.innerHTML = '';
+        const h = herbListBody();
+        if (h) h.innerHTML = '';
+        const c = carnListBody();
+        if (c) c.innerHTML = '';
         socket.emit('init_simulation');
     });
 });
