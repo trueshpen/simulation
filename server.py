@@ -36,6 +36,11 @@ FOOD_ENERGY = 20
 PREY_ENERGY = 50
 EAT_COOLDOWN = 5.0  # seconds after a meal before a creature eats again ("sytost")
 
+# Carnivores are larger, stronger predators — they get a runtime multiplier
+# on top of their genetic speed/vision. Herbivores use 1.0.
+CARNIVORE_SPEED_BONUS = 1.20
+CARNIVORE_VISION_BONUS = 1.10
+
 # Interaction radii
 EAT_RADIUS = 20
 ATTACK_RADIUS = 15
@@ -105,9 +110,9 @@ def maybe_log_stats():
     herb = sum(1 for c in creatures if not c.is_carnivore)
     carn = len(creatures) - herb
     with_vision = [c for c in creatures if c.vision_range > 0]
-    avg_vision = sum(c.vision_range for c in with_vision) / len(with_vision) if with_vision else 0
+    avg_vision = sum(c.effective_vision_range() for c in with_vision) / len(with_vision) if with_vision else 0
     avg_angle = sum(c.vision_angle for c in with_vision) / len(with_vision) if with_vision else 0
-    avg_speed = sum(c.speed for c in creatures) / len(creatures)
+    avg_speed = sum(c.effective_speed() for c in creatures) / len(creatures)
     log_event(
         'stat',
         f'Stav: býl={herb}, mas={carn}, jídlo={len(foods)}, '
@@ -161,6 +166,12 @@ class Creature:
             return 1.5
         return 1.0
 
+    def effective_speed(self):
+        return self.speed * (CARNIVORE_SPEED_BONUS if self.is_carnivore else 1.0)
+
+    def effective_vision_range(self):
+        return self.vision_range * (CARNIVORE_VISION_BONUS if self.is_carnivore else 1.0)
+
     def move(self, target_xy=None):
         if target_xy is not None:
             tx, ty = target_xy
@@ -171,8 +182,9 @@ class Creature:
         self.direction = normalize_angle(self.direction)
 
         mult = self.age_multiplier()
-        self.x += math.cos(self.direction) * self.speed * mult
-        self.y += math.sin(self.direction) * self.speed * mult
+        eff_speed = self.effective_speed()
+        self.x += math.cos(self.direction) * eff_speed * mult
+        self.y += math.sin(self.direction) * eff_speed * mult
 
         if self.x < 0:
             self.x = 0
@@ -187,13 +199,12 @@ class Creature:
             self.y = MAP_SIZE
             self.direction = normalize_angle(-self.direction)
 
-        self.energy -= MOVEMENT_COST * self.speed * mult
+        self.energy -= MOVEMENT_COST * eff_speed * mult
         if self.vision_range > 0:
-            # Cost scales with both range and angle (normalized so that a
-            # default 90-degree cone at range R costs VISION_COST * R,
-            # matching the old flat-rate formula).
-            self.energy -= VISION_COST * self.vision_range * (self.vision_angle / DEFAULT_VISION_ANGLE)
-        self.energy -= SPEED_COST * self.speed
+            # Cost scales with both effective range and angle (normalized so
+            # that a default 90° cone at range R costs VISION_COST * R).
+            self.energy -= VISION_COST * self.effective_vision_range() * (self.vision_angle / DEFAULT_VISION_ANGLE)
+        self.energy -= SPEED_COST * eff_speed
         self.energy -= DIRECTION_CHANGE_COST * self.direction_change
         if self.energy < 0:
             self.energy = 0
@@ -204,7 +215,7 @@ class Creature:
         dx = target_x - self.x
         dy = target_y - self.y
         distance = math.hypot(dx, dy)
-        if distance > self.vision_range:
+        if distance > self.effective_vision_range():
             return False
         diff = abs(normalize_angle(math.atan2(dy, dx) - self.direction))
         return diff <= self.vision_angle
@@ -273,7 +284,9 @@ class Creature:
             return 'dítě'
         if self.is_carnivore != other.is_carnivore:
             return 'jiný druh'
-        if self.is_old or other.is_old:
+        # Old herbivores can't reproduce; old carnivores can.
+        if (self.is_old and not self.is_carnivore) or \
+           (other.is_old and not other.is_carnivore):
             return 'stáří'
         if now - self.last_reproduction < REPRODUCTION_COOLDOWN or \
            now - other.last_reproduction < REPRODUCTION_COOLDOWN:
@@ -469,8 +482,8 @@ def current_state():
             'id': c.id,
             'x': c.x, 'y': c.y, 'direction': c.direction,
             'isCarnivore': c.is_carnivore,
-            'vision': c.vision_range, 'visionAngle': c.vision_angle,
-            'speed': c.speed, 'directionChange': c.direction_change,
+            'vision': c.effective_vision_range(), 'visionAngle': c.vision_angle,
+            'speed': c.effective_speed(), 'directionChange': c.direction_change,
             'age': now - c.creation_time, 'isAdult': c.is_adult, 'isOld': c.is_old,
             'energy': c.energy,
         } for c in creatures],
