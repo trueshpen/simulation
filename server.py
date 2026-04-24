@@ -44,7 +44,7 @@ CARNIVORE_VISION_BONUS = 1.10
 
 # Interaction radii
 EAT_RADIUS = 20
-ATTACK_RADIUS = 15
+ATTACK_RADIUS = 25
 REPRODUCTION_RADIUS = 50
 
 # Initial spawn: cluster creatures near map center so they can find
@@ -243,18 +243,22 @@ class Creature:
 
     def find_target(self, food_list, creature_list):
         """Pick who/what to walk toward this tick.
-        Hungry creatures only look for food. Satisfied creatures prefer a
-        visible mate and fall back to food if no mate is in sight.
+        Hungry creatures only look for food. Satisfied creatures consider
+        both food and mate; whichever is closer wins.
         """
         if self.vision_range <= 0:
             return None
 
-        food_target = self._scan_food(food_list, creature_list)
+        food_target, food_dist = self._scan_food(food_list, creature_list)
         if self.is_hungry():
             return food_target
 
-        mate_target = self._scan_mate(creature_list)
-        return mate_target if mate_target is not None else food_target
+        mate_target, mate_dist = self._scan_mate(creature_list)
+        if food_target is None:
+            return mate_target
+        if mate_target is None:
+            return food_target
+        return food_target if food_dist <= mate_dist else mate_target
 
     def _scan_food(self, food_list, creature_list):
         best = None
@@ -277,11 +281,11 @@ class Creature:
                 if d < best_dist:
                     best_dist = d
                     best = (food['x'], food['y'])
-        return best
+        return best, best_dist
 
     def _scan_mate(self, creature_list):
         if not self.can_mate():
-            return None
+            return None, float('inf')
         best = None
         best_dist = float('inf')
         for other in creature_list:
@@ -297,7 +301,7 @@ class Creature:
             if d < best_dist:
                 best_dist = d
                 best = (other.x, other.y)
-        return best
+        return best, best_dist
 
     def try_eat(self, food_list, creature_list):
         """Consume food/prey within touch range. Mutates food_list and marks prey dead."""
