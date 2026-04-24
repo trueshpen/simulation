@@ -97,17 +97,15 @@ function creatureColor(c) {
     return c.isOld ? '#1b5e20' : '#43a047';
 }
 
-function creatureRowHTML(c, i) {
+function creatureRowHTML(c) {
     const color = creatureColor(c);
-    const species = c.isCarnivore ? 'M' : 'B';
-    const stage = c.isOld ? ' starý' : (!c.isAdult ? ' dítě' : '');
+    const dotClass = c.isAdult ? 'adult' : 'child';
     const vis = c.vision > 0
         ? `zrak <b>${c.vision.toFixed(1)}</b>px / <b>${Math.round((c.visionAngle || DEFAULT_VISION_HALF_CONE) * 2 * 180 / Math.PI)}°</b>`
         : '<small>slepý</small>';
     return '<div class="creature-row">'
-        + `<div class="creature-dot" style="background:${color}"></div>`
+        + `<div class="creature-dot ${dotClass}" style="background:${color}"></div>`
         + '<div class="creature-stats">'
-        + `<b>#${i + 1}</b>${species}${stage} &nbsp; `
         + `rych. <b>${c.speed.toFixed(2)}</b> &nbsp; ${vis}`
         + '</div></div>';
 }

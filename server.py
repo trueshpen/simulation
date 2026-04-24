@@ -13,8 +13,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # World
 MAP_SIZE = 800
-MAX_FOOD = 250
-FOOD_SPAWN_RATE = 0.25
+MAX_FOOD = 350
+FOOD_SPAWN_RATE = 0.35
 INITIAL_FOOD = 100
 INITIAL_CREATURES = 10
 INITIAL_SPEED_RANGE = (2.2, 4.4)
@@ -28,7 +28,7 @@ REPRODUCTION_COOLDOWN = 2
 # Energy costs / rewards
 REPRODUCTION_COST = 20
 MOVEMENT_COST = 0.1
-VISION_COST = 0.02  # per tick per (range * angle / default_angle)
+VISION_COST = 0.03  # per tick per (range * angle / default_angle)
 SPEED_COST = 0.1
 DIRECTION_CHANGE_COST = 0.05
 FOOD_ENERGY = 20
@@ -77,11 +77,10 @@ foods = []
 simulation_running = False
 simulation_start_time = None
 
-# Event log (flushed into every broadcast)
+# Event log (flushed into every broadcast) — only periodic stat snapshot
 _events = []
-_last_near_miss_time = 0.0
-_last_carn_full_time = 0.0
 _last_stats_time = 0.0
+STATS_INTERVAL = 15.0
 
 
 def sim_elapsed():
@@ -92,28 +91,10 @@ def log_event(kind, text):
     _events.append({'type': kind, 'text': text, 't': sim_elapsed()})
 
 
-def maybe_log_near_miss(reason):
-    global _last_near_miss_time
-    now = time.time()
-    if now - _last_near_miss_time < 2.0:
-        return
-    _last_near_miss_time = now
-    log_event('repro_fail', f'Dva dospělí se potkali, ale reprodukce selhala ({reason})')
-
-
-def maybe_log_carn_full():
-    global _last_carn_full_time
-    now = time.time()
-    if now - _last_carn_full_time < 2.0:
-        return
-    _last_carn_full_time = now
-    log_event('carn_full', 'Masožravec potkal kořist, ale není hladový')
-
-
 def maybe_log_stats():
     global _last_stats_time
     now = time.time()
-    if now - _last_stats_time < 10.0:
+    if now - _last_stats_time < STATS_INTERVAL:
         return
     _last_stats_time = now
     if not creatures:
@@ -266,13 +247,10 @@ class Creature:
                 if math.hypot(other.x - self.x, other.y - self.y) > ATTACK_RADIUS:
                     continue
                 if self.energy >= HUNGER_THRESHOLD:
-                    maybe_log_carn_full()
                     return False
                 other.alive = False
                 self.energy += PREY_ENERGY
                 self.last_food = now
-                kind = 'starého masožravce' if other.is_carnivore else 'dospělého býložravce'
-                log_event('eat_prey', f'Masožravec snědl {kind}')
                 return True
         else:
             for i, food in enumerate(food_list):
@@ -316,8 +294,6 @@ class Creature:
         other.reproduction_count += 1
 
         n = sample_litter_size()
-        word = 'dítě' if n == 1 else 'děti'
-        log_event('birth', f'Narodilo se {n} {word}')
         return [self._make_child(other) for _ in range(n)]
 
     def _make_child(self, other):
@@ -370,11 +346,8 @@ class Creature:
 
 
 def initialize_simulation():
-    global creatures, foods, simulation_start_time, _events
-    global _last_near_miss_time, _last_carn_full_time, _last_stats_time
+    global creatures, foods, simulation_start_time, _events, _last_stats_time
     _events = []
-    _last_near_miss_time = 0.0
-    _last_carn_full_time = 0.0
     _last_stats_time = 0.0
     cx, cy = MAP_SIZE / 2, MAP_SIZE / 2
     creatures = [
@@ -420,13 +393,9 @@ def update_simulation():
 
             if c.is_old and (now - c.old_time) >= OLD_AGE_DURATION:
                 c.alive = False
-                kind = 'masožravec' if c.is_carnivore else 'býložravec'
-                log_event('death', f'Uhynul {kind} stářím (věk {now - c.creation_time:.1f}s)')
                 continue
             if (now - c.last_food) > STARVATION_TIME:
                 c.alive = False
-                kind = 'masožravec' if c.is_carnivore else 'býložravec'
-                log_event('death', f'Uhynul {kind} hladem (věk {now - c.creation_time:.1f}s)')
                 continue
 
             target = c.find_target(foods, creatures)
@@ -446,16 +415,13 @@ def update_simulation():
                     continue
                 if math.hypot(c.x - other.x, c.y - other.y) > REPRODUCTION_RADIUS:
                     continue
-                status = c.repro_status(other, now)
-                if status is None:
+                if c.can_reproduce_with(other, now):
                     children = c.reproduce(other)
                     if children:
                         new_children.extend(children)
                         paired.add(id(c))
                         paired.add(id(other))
                         break
-                elif status not in ('cooldown', 'daleko', 'dítě', 'jiný druh'):
-                    maybe_log_near_miss(status)
         creatures.extend(new_children)
         creatures[:] = [c for c in creatures if c.alive]
 

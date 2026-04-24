@@ -43,20 +43,22 @@ h1 {
 }
 
 .sim-area {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-    margin-bottom: 16px;
-    max-width: 100%;
+    display: contents;
 }
 
 .creature-list {
-    width: 260px;
-    flex-shrink: 0;
+    position: fixed;
+    left: 16px;
+    top: 16px;
+    width: 230px;
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
     background: #fff;
     border-radius: 6px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     overflow: hidden;
+    z-index: 10;
 }
 
 .creature-list-header {
@@ -65,10 +67,11 @@ h1 {
     font-weight: 600;
     font-size: 14px;
     color: #455a64;
+    flex-shrink: 0;
 }
 
 #creature-list-body {
-    max-height: 620px;
+    flex: 1;
     overflow-y: auto;
     font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
     font-size: 11px;
@@ -86,10 +89,18 @@ h1 {
 .creature-row:last-child { border-bottom: 0; }
 
 .creature-dot {
-    width: 10px;
-    height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
+}
+
+.creature-dot.child {
+    width: 7px;
+    height: 7px;
+}
+
+.creature-dot.adult {
+    width: 13px;
+    height: 13px;
 }
 
 .creature-stats {
@@ -109,6 +120,7 @@ h1 {
     background: #fafafa;
     border: 2px solid #333;
     display: block;
+    margin-bottom: 16px;
     max-width: 100%;
 }
 
