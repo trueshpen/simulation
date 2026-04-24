@@ -1,0 +1,90 @@
+Evoluční Simulace - Pravidla a Mechaniky
+
+KÓD A PRAVIDLA PROGRAMOVÁNÍ:
+- Všechny názvy proměnných, funkcí a komentářů musí být v angličtině
+- Žádná česká diakritika v kódu
+- Komentáře a dokumentace v angličtině
+- Názvy souborů v angličtině
+- Konzistentní pojmenování v celém projektu
+
+ZÁKLADNÍ NASTAVENÍ:
+- Velikost mapy: 800x800 pixelů
+- Maximální počet jídla: 200
+- Rychlost spawnu jídla: 0.2 (20% šance každý cyklus)
+- Počáteční jídlo: 100 kusů
+- Počáteční tvory: 10 býložravců
+
+VĚK A VÝVOJ:
+1. Děti (0-5 sekund):
+   - Normální rychlost
+   - Nemohou se rozmnožovat
+   - Masožravci je ignorují
+
+2. Dospělí (5+ sekund):
+   - 1.5x rychlejší než děti
+   - Mohou se rozmnožovat
+   - Po 2 rozmnoženích zestárnou
+
+3. Staří (po 2 rozmnoženích):
+   - 0.5x rychlejší než dospělí
+   - Nemohou se rozmnožovat
+   - Umírají po 30 sekundách od dospělosti
+   - Masožravci je mohou jíst
+
+ENERGIE A PŘEŽITÍ:
+- Smrt hladem: po 20 sekundách bez jídla
+- Cena pohybu: 0.1 * rychlost * multiplikátor věku
+- Cena zraku: 0.2 * délka zraku
+- Cena rychlosti: 0.1 * rychlost
+- Cena změny směru: 0.05 * šance změny
+
+REPRODUKCE:
+- Pouze mezi dospělými (ne starými)
+- Cooldown: 2 sekundy mezi reprodukcemi
+- Vždy 1 dítě
+- Dítě se narodí mezi rodiči
+- Energie rodičů se rozdělí na čtvrtiny
+
+MUTACE A DĚDIČNOST:
+1. Masožravost:
+   - 15% šance stát se masožravcem
+   - 100% šance při dvou masožravcích
+
+2. Zrak:
+   - Bez rodičů se zrakem: 10% šance (5-10px)
+   - S jedním rodičem se zrakem: 50% šance (rodič + 5-20%)
+   - S oběma rodiči se zrakem: 100% šance (průměr + 5-20%)
+
+3. Rychlost:
+   - Dědičnost: průměr rodičů ±10%
+   - Počáteční: 2-4
+
+4. Změna směru:
+   - Dědičnost: průměr rodičů ±5%
+   - Rozsah: 0.1-0.3 (10-30% šance)
+
+POTRAVA:
+1. Býložravci:
+   - Jedí pouze jídlo
+   - +20 energie za jídlo
+
+2. Masožravci:
+   - Jedí pouze dospělé býložravce a staré masožravce
+   - Ignorují děti a dospělé masožravce
+   - +50 energie za kořist
+
+ZRAK:
+- Úhel zraku: 90 stupňů
+- Spotřeba energie: 0.2 * délka zraku
+- Děti začínají bez zraku
+- Zrak se vyvíjí evolucí
+
+POHYB:
+- Změna směru: ±45 stupňů podle genu
+- Odrážení od stěn
+- Rychlost se mění s věkem:
+  * Děti: 1.0x
+  * Dospělí: 1.5x
+  * Staří: 0.5x
+
+Poslední aktualizace: 11.6.2025 
