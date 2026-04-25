@@ -6,12 +6,21 @@ const MAP_SIZE = 1000;
 const DEFAULT_VISION_HALF_CONE = Math.PI / 4;
 const CREATURE_SIZE = 5;
 
+// Mirror server's river curve.
+const RIVER_AMPLITUDE = 90;
+const RIVER_FREQUENCY = 0.008;
+const RIVER_BASE_Y = 500;
+const RIVER_HALF_WIDTH = 45;
+
+function riverCenterY(x) {
+    return RIVER_BASE_Y + RIVER_AMPLITUDE * Math.sin(x * RIVER_FREQUENCY);
+}
+
 let state = { creatures: [], food: [], simulationTime: 0 };
 
 function resizeCanvas() {
-    // main-layout: [herb 225] [carn 225] [canvas ???] [right 280] + gaps
-    const reservedW = 2 * 225 + 280 + 3 * 14 + 2 * 16 + 20;
-    // Vertical: top bar (~44) + body padding + safety
+    // main-layout: [lists-area 460 (2×225 + 10 gap)] [canvas] [right 280] + gaps
+    const reservedW = 460 + 280 + 2 * 14 + 2 * 16 + 20;
     const reservedH = 44 + 2 * 16 + 20;
     const maxSize = Math.min(
         window.innerWidth - reservedW,
@@ -25,18 +34,44 @@ function resizeCanvas() {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
 }
 
+function drawRiver() {
+    const step = 4;
+    ctx.fillStyle = '#7ec8e8';  // light water blue
+    ctx.beginPath();
+    for (let x = 0; x <= MAP_SIZE; x += step) {
+        const y = riverCenterY(x) - RIVER_HALF_WIDTH;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    for (let x = MAP_SIZE; x >= 0; x -= step) {
+        const y = riverCenterY(x) + RIVER_HALF_WIDTH;
+        ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function speciesColor(c) {
+    if (c.species === 'croc') return c.isOld ? '#062b09' : '#1b5e20';
+    if (c.species === 'carn') return c.isOld ? '#8b0000' : '#d32f2f';
+    // herbivore: light brown / dark brown
+    return c.isOld ? '#5d4037' : '#a1887f';
+}
+
 function draw() {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#fafafa';
+    ctx.fillStyle = '#f3eee0';  // dry grassland tan
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
+
+    drawRiver();
 
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, MAP_SIZE, MAP_SIZE);
 
-    ctx.fillStyle = '#29b6f6';
+    // Food (grass) — green
+    ctx.fillStyle = '#4caf50';
     for (const f of state.food) {
         ctx.beginPath();
         ctx.arc(f.x, f.y, 3, 0, Math.PI * 2);
@@ -55,11 +90,7 @@ function draw() {
             ctx.fill();
         }
 
-        if (c.isCarnivore) {
-            ctx.fillStyle = c.isOld ? '#8b0000' : '#d32f2f';
-        } else {
-            ctx.fillStyle = c.isOld ? '#1b5e20' : '#43a047';
-        }
+        ctx.fillStyle = speciesColor(c);
         const radius = c.isAdult ? CREATURE_SIZE : CREATURE_SIZE * 0.7;
         ctx.beginPath();
         ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
@@ -69,8 +100,9 @@ function draw() {
 
 function updateStats() {
     const creatures = state.creatures;
-    const herbivores = creatures.filter(c => !c.isCarnivore).length;
-    const carnivores = creatures.length - herbivores;
+    const herb = creatures.filter(c => c.species === 'herb').length;
+    const carn = creatures.filter(c => c.species === 'carn').length;
+    const croc = creatures.filter(c => c.species === 'croc').length;
     const withVision = creatures.filter(c => c.vision > 0);
     const avgVision = withVision.length
         ? withVision.reduce((a, c) => a + c.vision, 0) / withVision.length
@@ -80,8 +112,9 @@ function updateStats() {
         : 0;
 
     document.getElementById('stat-time').textContent = Math.floor(state.simulationTime || 0) + 's';
-    document.getElementById('stat-herbivores').textContent = herbivores;
-    document.getElementById('stat-carnivores').textContent = carnivores;
+    document.getElementById('stat-herbivores').textContent = herb;
+    document.getElementById('stat-carnivores').textContent = carn;
+    document.getElementById('stat-crocodiles').textContent = croc;
     document.getElementById('stat-food').textContent = state.food.length;
     document.getElementById('stat-vision').textContent = avgVision.toFixed(1);
     document.getElementById('stat-speed').textContent = avgSpeed.toFixed(2);
@@ -91,17 +124,13 @@ const MAX_LOG_ENTRIES = 150;
 const logList = () => document.getElementById('log-list');
 const herbListBody = () => document.getElementById('herb-list-body');
 const carnListBody = () => document.getElementById('carn-list-body');
+const crocListBody = () => document.getElementById('croc-list-body');
 
 const LIST_RENDER_INTERVAL_MS = 500;
 let lastListRender = 0;
 
-function creatureColor(c) {
-    if (c.isCarnivore) return c.isOld ? '#8b0000' : '#d32f2f';
-    return c.isOld ? '#1b5e20' : '#43a047';
-}
-
 function creatureRowHTML(c) {
-    const color = creatureColor(c);
+    const color = speciesColor(c);
     const dotClass = c.isAdult ? 'adult' : 'child';
     let visCell;
     if (c.vision > 0) {
@@ -121,15 +150,19 @@ function creatureRowHTML(c) {
 function renderCreatureList() {
     const herb = herbListBody();
     const carn = carnListBody();
-    if (!herb || !carn) return;
+    const croc = crocListBody();
+    if (!herb || !carn || !croc) return;
     const sorted = state.creatures.slice().sort((a, b) => (a.id || 0) - (b.id || 0));
-    const herbRows = [];
-    const carnRows = [];
+    const buckets = { herb: [], carn: [], croc: [] };
     for (const c of sorted) {
-        (c.isCarnivore ? carnRows : herbRows).push(creatureRowHTML(c));
+        const html = creatureRowHTML(c);
+        if (c.species === 'carn') buckets.carn.push(html);
+        else if (c.species === 'croc') buckets.croc.push(html);
+        else buckets.herb.push(html);
     }
-    herb.innerHTML = herbRows.join('');
-    carn.innerHTML = carnRows.join('');
+    herb.innerHTML = buckets.herb.join('');
+    carn.innerHTML = buckets.carn.join('');
+    croc.innerHTML = buckets.croc.join('');
 }
 
 function appendLogs(events) {
@@ -147,12 +180,12 @@ function appendLogs(events) {
         tr.className = 'log-stat';
         const ts = Math.floor(e.t).toString() + 's';
         if (e.empty) {
-            tr.innerHTML = `<td>${ts}</td><td colspan="4"><em>žádní tvorové</em></td>`;
+            tr.innerHTML = `<td>${ts}</td><td colspan="5"><em>žádní tvorové</em></td>`;
         } else {
             const visStats = e.visionCount > 0
                 ? `${e.visionDist.toFixed(1)} / ${Math.round(e.visionAngleDeg)}°`
                 : '—';
-            tr.innerHTML = `<td>${ts}</td><td>${e.herb}</td><td>${e.carn}</td>`
+            tr.innerHTML = `<td>${ts}</td><td>${e.herb}</td><td>${e.carn}</td><td>${e.croc ?? 0}</td>`
                 + `<td>${e.visionCount}</td><td>${visStats}</td>`;
         }
         frag.appendChild(tr);
@@ -198,12 +231,9 @@ window.addEventListener('load', () => {
 
     const restartBtn = document.getElementById('restartButton');
     restartBtn.addEventListener('click', () => {
-        const list = logList();
-        if (list) list.innerHTML = '';
-        const h = herbListBody();
-        if (h) h.innerHTML = '';
-        const c = carnListBody();
-        if (c) c.innerHTML = '';
+        for (const el of [logList(), herbListBody(), carnListBody(), crocListBody()]) {
+            if (el) el.innerHTML = '';
+        }
         socket.emit('init_simulation');
     });
 });

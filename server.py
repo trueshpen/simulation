@@ -17,7 +17,7 @@ MAP_SIZE = 1000
 MAX_FOOD = 550
 FOOD_SPAWN_RATE = 0.70
 INITIAL_FOOD = 160
-INITIAL_CREATURES = 10
+INITIAL_CREATURES = 15
 INITIAL_SPEED_RANGE = (2.2, 4.4)
 
 # Creature lifecycle (seconds)
@@ -34,28 +34,62 @@ SPEED_COST = 0.1
 DIRECTION_CHANGE_COST = 0.05
 FOOD_ENERGY = 30
 PREY_ENERGY = 60
-EAT_COOLDOWN = 3.0  # seconds after a meal before a creature eats again ("sytost")
-HUNGRY_ENERGY = 50  # below this, creature only chases food (ignores potential mates)
+EAT_COOLDOWN_HERB = 3.0   # herbivore "sytost"
+EAT_COOLDOWN_PRED = 6.0   # carnivore + crocodile "sytost" — slower predation
+HUNGRY_ENERGY = 50         # below this, creature only chases food
+PRED_FULL_ENERGY = 70      # carn / croc at this energy skips a kill
 
-# Carnivores are larger, stronger predators — they get a runtime multiplier
-# on top of their genetic speed/vision. Herbivores use 1.0.
-CARNIVORE_SPEED_BONUS = 1.20
+# Species multipliers (runtime, on top of genetic speed/vision).
+CARNIVORE_SPEED_BONUS = 1.10
 CARNIVORE_VISION_BONUS = 1.10
 
 # Interaction radii
 EAT_RADIUS = 20
-ATTACK_RADIUS = 25
+ATTACK_RADIUS = 18
 REPRODUCTION_RADIUS = 50
 
 # Initial spawn: cluster creatures near map center so they can find
 # each other to reproduce before dying. info.txt doesn't pin this down.
 INITIAL_CLUSTER_RADIUS = 190
 
-# Mutation rules
+# Species
+SPECIES_HERB = 'herb'
+SPECIES_CARN = 'carn'
+SPECIES_CROC = 'croc'
+
+# Mutation rules — per-child species roll for herbivore parents.
 CARNIVORE_CHANCE = 0.15
+CROCODILE_CHANCE = 0.08
 VISION_CHANCE_NONE = 0.1
 VISION_RANGE_NONE = (5, 10)
 DIRECTION_CHANGE_MUTATION = 0.05
+
+# River: a sine-wave band across the map. Same parameters used on the client.
+RIVER_AMPLITUDE = 90
+RIVER_FREQUENCY = 0.008
+RIVER_BASE_Y = 500       # MAP_SIZE / 2
+RIVER_HALF_WIDTH = 45    # 90 px wide river
+CROC_HUNT_LAND_RANGE = 30  # crocs can hunt up to this far from water
+
+# Water modifiers
+WATER_SPEED_MOD = 0.5    # non-croc 2× slower in water
+WATER_VISION_MOD = 0.5   # non-croc 2× shorter vision in water
+CROC_LAND_SPEED_MOD = 1.0 / 1.5  # croc 1.5× slower on land
+
+# Crocodile lifecycle is 2× slower than the others.
+CROC_AGING_MULT = 2.0
+
+
+def river_center_y(x):
+    return RIVER_BASE_Y + RIVER_AMPLITUDE * math.sin(x * RIVER_FREQUENCY)
+
+
+def is_water(x, y):
+    return abs(y - river_center_y(x)) < RIVER_HALF_WIDTH
+
+
+def is_in_or_near_water(x, y):
+    return abs(y - river_center_y(x)) < RIVER_HALF_WIDTH + CROC_HUNT_LAND_RANGE
 
 # Per-trait mutation: child = avg_of_parents * uniform(MUTATION_LOW, MUTATION_HIGH)
 MUTATION_LOW = 0.9
@@ -111,14 +145,16 @@ def maybe_log_stats():
         event['empty'] = True
         _events.append(event)
         return
-    herb = sum(1 for c in creatures if not c.is_carnivore)
-    carn = len(creatures) - herb
+    herb = sum(1 for c in creatures if c.species == SPECIES_HERB)
+    carn = sum(1 for c in creatures if c.species == SPECIES_CARN)
+    croc = sum(1 for c in creatures if c.species == SPECIES_CROC)
     with_vision = [c for c in creatures if c.vision_range > 0]
     avg_dist = sum(c.effective_vision_range() for c in with_vision) / len(with_vision) if with_vision else 0
     avg_angle = sum(c.vision_angle for c in with_vision) / len(with_vision) if with_vision else 0
     event.update({
         'herb': herb,
         'carn': carn,
+        'croc': croc,
         'visionCount': len(with_vision),
         'visionDist': avg_dist,
         'visionAngleDeg': math.degrees(2 * avg_angle),
@@ -131,16 +167,26 @@ def normalize_angle(a):
 
 
 def spawn_food():
-    if len(foods) < MAX_FOOD and random.random() < FOOD_SPAWN_RATE:
-        foods.append({
-            'x': random.uniform(0, MAP_SIZE),
-            'y': random.uniform(0, MAP_SIZE),
-        })
+    if len(foods) >= MAX_FOOD or random.random() >= FOOD_SPAWN_RATE:
+        return
+    # 70% bias toward riverbank (more grass near water), 30% anywhere on land.
+    for _ in range(8):
+        x = random.uniform(0, MAP_SIZE)
+        if random.random() < 0.7:
+            rcy = river_center_y(x)
+            sign = random.choice([-1, 1])
+            offset = random.uniform(RIVER_HALF_WIDTH + 5, RIVER_HALF_WIDTH + 90)
+            y = rcy + offset * sign
+        else:
+            y = random.uniform(0, MAP_SIZE)
+        if 0 <= y <= MAP_SIZE and not is_water(x, y):
+            foods.append({'x': x, 'y': y})
+            return
 
 
 class Creature:
     def __init__(self, x, y, speed=3, direction_change=0.2,
-                 vision_range=0, vision_angle=0, is_carnivore=False):
+                 vision_range=0, vision_angle=0, species=SPECIES_HERB):
         global _next_creature_id
         _next_creature_id += 1
         self.id = _next_creature_id
@@ -150,7 +196,7 @@ class Creature:
         self.direction_change = direction_change
         self.vision_range = vision_range
         self.vision_angle = vision_angle
-        self.is_carnivore = is_carnivore
+        self.species = species
         self.energy = 100
         self.direction = random.uniform(-math.pi, math.pi)
         self.last_reproduction = 0
@@ -162,6 +208,29 @@ class Creature:
         self.old_time = None
         self.creation_time = time.time()
         self.alive = True
+        # River-crossing state. None when on land or in water but not crossing.
+        self.river_crossing = None  # 'south' | 'north' | None
+
+    @property
+    def is_carnivore(self):
+        return self.species == SPECIES_CARN
+
+    @property
+    def is_crocodile(self):
+        return self.species == SPECIES_CROC
+
+    @property
+    def is_predator(self):
+        return self.species in (SPECIES_CARN, SPECIES_CROC)
+
+    def maturation_time(self):
+        return MATURATION_TIME * (CROC_AGING_MULT if self.is_crocodile else 1.0)
+
+    def old_age_duration(self):
+        return OLD_AGE_DURATION * (CROC_AGING_MULT if self.is_crocodile else 1.0)
+
+    def starvation_time(self):
+        return STARVATION_TIME * (CROC_AGING_MULT if self.is_crocodile else 1.0)
 
     def age_multiplier(self):
         if self.is_old:
@@ -170,11 +239,32 @@ class Creature:
             return 1.5
         return 1.0
 
+    def position_speed_mod(self):
+        in_w = is_water(self.x, self.y)
+        if self.is_crocodile:
+            return 1.0 if in_w else CROC_LAND_SPEED_MOD
+        return WATER_SPEED_MOD if in_w else 1.0
+
+    def position_vision_mod(self):
+        if self.is_crocodile:
+            return 1.0
+        return WATER_VISION_MOD if is_water(self.x, self.y) else 1.0
+
+    def species_speed_bonus(self):
+        if self.is_carnivore:
+            return CARNIVORE_SPEED_BONUS
+        return 1.0  # crocs use only land/water modifier
+
+    def species_vision_bonus(self):
+        if self.is_carnivore:
+            return CARNIVORE_VISION_BONUS
+        return 1.0
+
     def effective_speed(self):
-        return self.speed * (CARNIVORE_SPEED_BONUS if self.is_carnivore else 1.0)
+        return self.speed * self.species_speed_bonus() * self.position_speed_mod()
 
     def effective_vision_range(self):
-        return self.vision_range * (CARNIVORE_VISION_BONUS if self.is_carnivore else 1.0)
+        return self.vision_range * self.species_vision_bonus() * self.position_vision_mod()
 
     def move(self, target_xy=None):
         if target_xy is not None:
@@ -213,6 +303,25 @@ class Creature:
         if self.energy < 0:
             self.energy = 0
 
+    def maybe_river_crossing(self, target):
+        """When a non-croc steps into water, force it to walk straight to the
+        opposite bank instead of swimming around. Resets when it leaves the
+        water again."""
+        if self.is_crocodile:
+            return target
+        if not is_water(self.x, self.y):
+            self.river_crossing = None
+            return target
+        # In water — pick a target shore if not already crossing.
+        if self.river_crossing is None:
+            rcy = river_center_y(self.x)
+            self.river_crossing = 'south' if self.y < rcy else 'north'
+        rcy = river_center_y(self.x)
+        if self.river_crossing == 'south':
+            return (self.x, rcy + RIVER_HALF_WIDTH + 20)
+        else:
+            return (self.x, rcy - RIVER_HALF_WIDTH - 20)
+
     def can_see(self, target_x, target_y):
         if self.vision_range <= 0:
             return False
@@ -225,15 +334,27 @@ class Creature:
         return diff <= self.vision_angle
 
     def is_prey_for(self, predator):
-        """Whether `self` can be eaten by `predator` (a carnivore).
-        Children are never prey. Any adult herbivore (including old)
-        is prey. Carnivores only eat each other when the target is old.
+        """Whether `self` can be eaten by `predator`.
+
+        Rules per predator species:
+          - carnivore: any adult herbivore (incl. old); old carnivores; not crocs.
+          - crocodile: any adult herbivore or carnivore; old crocodiles only.
+
+        Children are never prey.
         """
         if self is predator or not self.alive or not self.is_adult:
             return False
-        if not self.is_carnivore:
-            return True
-        return self.is_old
+        if predator.is_crocodile:
+            if self.is_crocodile:
+                return self.is_old
+            return True  # crocs eat any adult herb/carn
+        if predator.is_carnivore:
+            if self.species == SPECIES_HERB:
+                return True
+            if self.species == SPECIES_CARN:
+                return self.is_old
+            return False  # carns don't hunt crocs
+        return False  # herbs don't hunt
 
     def is_hungry(self):
         return self.energy < HUNGRY_ENERGY
@@ -249,11 +370,19 @@ class Creature:
 
     def find_target(self, food_list, creature_list):
         """Pick who/what to walk toward this tick.
-        Hungry creatures only look for food. Satisfied creatures consider
-        both food and mate; whichever is closer wins.
+        Herbivores and carnivores flee from their predators when seen.
+        Hungry creatures only look for food; satisfied creatures pick the
+        closer of food/mate.
         """
         if self.vision_range <= 0:
             return None
+
+        # Predator avoidance trumps everything (only crocs have no predators).
+        if not self.is_crocodile:
+            predator = self._scan_predator(creature_list)
+            if predator is not None:
+                return (self.x + (self.x - predator.x),
+                        self.y + (self.y - predator.y))
 
         food_target, food_dist = self._scan_food(food_list, creature_list)
         if self.is_hungry():
@@ -266,10 +395,33 @@ class Creature:
             return food_target
         return food_target if food_dist <= mate_dist else mate_target
 
+    def _scan_predator(self, creature_list):
+        """Nearest visible adult predator that hunts this creature's species."""
+        nearest = None
+        min_dist = float('inf')
+        for other in creature_list:
+            if not other.alive or not other.is_adult:
+                continue
+            # Will `other` hunt me?
+            if self.species == SPECIES_HERB and other.species not in (SPECIES_CARN, SPECIES_CROC):
+                continue
+            if self.species == SPECIES_CARN and other.species != SPECIES_CROC:
+                continue
+            if not self.can_see(other.x, other.y):
+                continue
+            d = math.hypot(other.x - self.x, other.y - self.y)
+            if d < min_dist:
+                min_dist = d
+                nearest = other
+        return nearest
+
     def _scan_food(self, food_list, creature_list):
         best = None
         best_dist = float('inf')
-        if self.is_carnivore:
+        if self.is_predator:
+            # Crocs only hunt when in water or close to it.
+            if self.is_crocodile and not is_in_or_near_water(self.x, self.y):
+                return None, float('inf')
             for other in creature_list:
                 if not other.is_prey_for(self):
                     continue
@@ -297,7 +449,7 @@ class Creature:
         for other in creature_list:
             if other is self or not other.alive:
                 continue
-            if other.is_carnivore != self.is_carnivore:
+            if other.species != self.species:
                 continue
             if not other.can_mate():
                 continue
@@ -312,10 +464,16 @@ class Creature:
     def try_eat(self, food_list, creature_list):
         """Consume food/prey within touch range. Mutates food_list and marks prey dead."""
         now = time.time()
-        # Both species have "sytost": 5 seconds after a meal they don't eat.
-        if now - self.last_food < EAT_COOLDOWN:
+        cooldown = EAT_COOLDOWN_PRED if self.is_predator else EAT_COOLDOWN_HERB
+        if now - self.last_food < cooldown:
             return False
-        if self.is_carnivore:
+        if self.is_predator:
+            # Predator satiety.
+            if self.energy >= PRED_FULL_ENERGY:
+                return False
+            # Crocs only attack when in/near water.
+            if self.is_crocodile and not is_in_or_near_water(self.x, self.y):
+                return False
             for other in creature_list:
                 if not other.is_prey_for(self):
                     continue
@@ -338,11 +496,11 @@ class Creature:
         """None = can reproduce; otherwise a Czech reason string."""
         if not self.is_adult or not other.is_adult:
             return 'dítě'
-        if self.is_carnivore != other.is_carnivore:
+        if self.species != other.species:
             return 'jiný druh'
-        # Old herbivores can't reproduce; old carnivores can.
-        if (self.is_old and not self.is_carnivore) or \
-           (other.is_old and not other.is_carnivore):
+        # Old herbivores can't reproduce; old carns and crocs can.
+        if (self.is_old and self.species == SPECIES_HERB) or \
+           (other.is_old and other.species == SPECIES_HERB):
             return 'stáří'
         if now - self.last_reproduction < REPRODUCTION_COOLDOWN or \
            now - other.last_reproduction < REPRODUCTION_COOLDOWN:
@@ -369,6 +527,8 @@ class Creature:
         other.reproduction_count += 1
 
         n = sample_litter_size()
+        if self.species in (SPECIES_CARN, SPECIES_CROC) and other.species == self.species:
+            n = min(n, 2)  # predator lineages have smaller broods
         return [self._make_child(other) for _ in range(n)]
 
     def _make_child(self, other):
@@ -405,10 +565,20 @@ class Creature:
             child_vision = min(child_vision, MAX_VISION_RANGE)
             child_vangle = max(MIN_VISION_ANGLE, min(MAX_VISION_ANGLE, child_vangle))
 
-        if self.is_carnivore and other.is_carnivore:
-            child_carn = True
+        # Child species:
+        #  - both same predator → that predator
+        #  - both herbivore → mutation roll (carn or croc or stay herb)
+        #  - mixed species can't reproduce (filtered by repro_status)
+        if self.species == other.species and self.species != SPECIES_HERB:
+            child_species = self.species
         else:
-            child_carn = random.random() < CARNIVORE_CHANCE
+            r = random.random()
+            if r < CARNIVORE_CHANCE:
+                child_species = SPECIES_CARN
+            elif r < CARNIVORE_CHANCE + CROCODILE_CHANCE:
+                child_species = SPECIES_CROC
+            else:
+                child_species = SPECIES_HERB
 
         return Creature(
             x=(self.x + other.x) / 2 + random.uniform(-5, 5),
@@ -417,7 +587,7 @@ class Creature:
             direction_change=child_dc,
             vision_range=child_vision,
             vision_angle=child_vangle,
-            is_carnivore=child_carn,
+            species=child_species,
         )
 
 
@@ -428,17 +598,21 @@ def initialize_simulation():
     _last_stats_time = 0.0
     _next_creature_id = 0
     cx, cy = MAP_SIZE / 2, MAP_SIZE / 2
-    creatures = [
-        Creature(
-            x=cx + random.uniform(-INITIAL_CLUSTER_RADIUS, INITIAL_CLUSTER_RADIUS),
-            y=cy + random.uniform(-INITIAL_CLUSTER_RADIUS, INITIAL_CLUSTER_RADIUS),
+    creatures = []
+    for _ in range(INITIAL_CREATURES):
+        # Place initial herbs on dry land in the cluster area.
+        for _ in range(20):
+            x = cx + random.uniform(-INITIAL_CLUSTER_RADIUS, INITIAL_CLUSTER_RADIUS)
+            y = cy + random.uniform(-INITIAL_CLUSTER_RADIUS, INITIAL_CLUSTER_RADIUS)
+            if not is_water(x, y):
+                break
+        creatures.append(Creature(
+            x=x, y=y,
             speed=random.uniform(*INITIAL_SPEED_RANGE),
             direction_change=random.uniform(0.1, 0.3),
             vision_range=0,
-            is_carnivore=False,
-        )
-        for _ in range(INITIAL_CREATURES)
-    ]
+            species=SPECIES_HERB,
+        ))
     foods = [
         {'x': random.uniform(0, MAP_SIZE), 'y': random.uniform(0, MAP_SIZE)}
         for _ in range(INITIAL_FOOD)
@@ -462,21 +636,22 @@ def update_simulation():
                 continue
 
             age = now - c.creation_time
-            if not c.is_adult and age >= MATURATION_TIME:
+            if not c.is_adult and age >= c.maturation_time():
                 c.is_adult = True
                 c.adult_time = now
             if c.is_adult and not c.is_old and c.reproduction_count >= 2:
                 c.is_old = True
                 c.old_time = now
 
-            if c.is_old and (now - c.old_time) >= OLD_AGE_DURATION:
+            if c.is_old and (now - c.old_time) >= c.old_age_duration():
                 c.alive = False
                 continue
-            if (now - c.last_food) > STARVATION_TIME:
+            if (now - c.last_food) > c.starvation_time():
                 c.alive = False
                 continue
 
             target = c.find_target(foods, creatures)
+            target = c.maybe_river_crossing(target)
             c.move(target)
             c.try_eat(foods, creatures)
 
@@ -538,7 +713,7 @@ def current_state():
         'creatures': [{
             'id': c.id,
             'x': c.x, 'y': c.y, 'direction': c.direction,
-            'isCarnivore': c.is_carnivore,
+            'species': c.species,
             'vision': c.effective_vision_range(), 'visionAngle': c.vision_angle,
             'speed': c.effective_speed(), 'directionChange': c.direction_change,
             'age': now - c.creation_time, 'isAdult': c.is_adult, 'isOld': c.is_old,

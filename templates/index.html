@@ -13,36 +13,54 @@
         <button id="restartButton" title="Restartovat simulaci">↻ Restart</button>
     </div>
     <div class="main-layout">
-        <div class="creature-list">
-            <div class="creature-list-header">Býložravci</div>
-            <div class="creature-list-scroll">
-                <table class="creature-table">
-                    <thead>
-                        <tr>
-                            <th class="col-id">#</th>
-                            <th class="col-species">Věk</th>
-                            <th class="col-speed">Rychl.</th>
-                            <th class="col-vision">Zrak</th>
-                        </tr>
-                    </thead>
-                    <tbody id="herb-list-body"></tbody>
-                </table>
+        <div class="lists-area">
+            <div class="creature-list creature-list--herb">
+                <div class="creature-list-header">Býložravci</div>
+                <div class="creature-list-scroll">
+                    <table class="creature-table">
+                        <thead>
+                            <tr>
+                                <th class="col-id">#</th>
+                                <th class="col-species">Věk</th>
+                                <th class="col-speed">Rychl.</th>
+                                <th class="col-vision">Zrak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="herb-list-body"></tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-        <div class="creature-list">
-            <div class="creature-list-header">Masožravci</div>
-            <div class="creature-list-scroll">
-                <table class="creature-table">
-                    <thead>
-                        <tr>
-                            <th class="col-id">#</th>
-                            <th class="col-species">Věk</th>
-                            <th class="col-speed">Rychl.</th>
-                            <th class="col-vision">Zrak</th>
-                        </tr>
-                    </thead>
-                    <tbody id="carn-list-body"></tbody>
-                </table>
+            <div class="creature-list creature-list--carn">
+                <div class="creature-list-header">Masožravci</div>
+                <div class="creature-list-scroll">
+                    <table class="creature-table">
+                        <thead>
+                            <tr>
+                                <th class="col-id">#</th>
+                                <th class="col-species">Věk</th>
+                                <th class="col-speed">Rychl.</th>
+                                <th class="col-vision">Zrak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="carn-list-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="creature-list creature-list--croc">
+                <div class="creature-list-header">Krokodýli</div>
+                <div class="creature-list-scroll">
+                    <table class="creature-table">
+                        <thead>
+                            <tr>
+                                <th class="col-id">#</th>
+                                <th class="col-species">Věk</th>
+                                <th class="col-speed">Rychl.</th>
+                                <th class="col-vision">Zrak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="croc-list-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
         <canvas id="simulationCanvas" width="1000" height="1000"></canvas>
@@ -51,6 +69,7 @@
                 <div><b>Čas:</b> <span id="stat-time">0s</span></div>
                 <div><b>Býložravci:</b> <span id="stat-herbivores">0</span></div>
                 <div><b>Masožravci:</b> <span id="stat-carnivores">0</span></div>
+                <div><b>Krokodýli:</b> <span id="stat-crocodiles">0</span></div>
                 <div><b>Jídlo:</b> <span id="stat-food">0</span></div>
                 <div><b>Průměrný zrak:</b> <span id="stat-vision">0</span></div>
                 <div><b>Průměrná rychlost:</b> <span id="stat-speed">0</span></div>
@@ -62,8 +81,9 @@
                         <thead>
                             <tr>
                                 <th>Čas</th>
-                                <th>Býl</th>
-                                <th>Mas</th>
+                                <th>B</th>
+                                <th>M</th>
+                                <th>K</th>
                                 <th>Zrak #</th>
                                 <th>Zrak</th>
                             </tr>

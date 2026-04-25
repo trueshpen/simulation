@@ -43,16 +43,26 @@ body {
     align-items: flex-start;
 }
 
-.creature-list {
-    width: 225px;
+.lists-area {
+    display: grid;
+    grid-template-columns: 225px 225px;
+    grid-auto-rows: 240px;
+    gap: 10px;
     flex-shrink: 0;
-    max-height: calc(100vh - 60px);
+}
+
+.creature-list--croc {
+    grid-column: span 2;
+}
+
+.creature-list {
     display: flex;
     flex-direction: column;
     background: #fff;
     border-radius: 6px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     overflow: hidden;
+    min-height: 0;
 }
 
 .creature-list-header {
@@ -227,6 +237,11 @@ body {
 
 .stat-table td:first-child {
     color: #90a4ae;
+}
+
+.stat-table th, .stat-table td {
+    padding-left: 3px;
+    padding-right: 3px;
 }
 
 .stat-table em {
