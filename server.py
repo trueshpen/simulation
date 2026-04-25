@@ -397,10 +397,10 @@ class Creature:
                 else:
                     target = food_target if food_dist <= mate_dist else mate_target
 
-        # Rescue herd: only kick in when the species is nearly extinct
-        # (≤ 5 individuals). Without this gate the whole population
-        # snowballs into one tight cluster and reproduction explodes.
-        if target is None:
+        # Rescue herd: only for non-crocs, only when the species is nearly
+        # extinct (≤ 5 individuals). Crocs use water homing instead so they
+        # never drift away from the river.
+        if target is None and not self.is_crocodile:
             same = [c for c in creature_list
                     if c is not self and c.alive and c.species == self.species]
             if 0 < len(same) <= 5:
@@ -444,6 +444,9 @@ class Creature:
             for other in creature_list:
                 if not other.is_prey_for(self):
                     continue
+                # Crocs don't chase prey that's already too far from water.
+                if self.is_crocodile and not is_in_or_near_water(other.x, other.y):
+                    continue
                 if not self.can_see(other.x, other.y):
                     continue
                 d = math.hypot(other.x - self.x, other.y - self.y)
@@ -463,6 +466,10 @@ class Creature:
     def _scan_mate(self, creature_list):
         if not self.can_mate():
             return None, float('inf')
+        # Crocs only seek mates while themselves in/near water, so they
+        # don't go wandering across dry land chasing a partner.
+        if self.is_crocodile and not is_in_or_near_water(self.x, self.y):
+            return None, float('inf')
         best = None
         best_dist = float('inf')
         for other in creature_list:
@@ -471,6 +478,9 @@ class Creature:
             if other.species != self.species:
                 continue
             if not other.can_mate():
+                continue
+            # Crocs ignore mates that are too far from water.
+            if self.is_crocodile and not is_in_or_near_water(other.x, other.y):
                 continue
             if not self.can_see(other.x, other.y):
                 continue
