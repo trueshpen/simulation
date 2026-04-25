@@ -17,23 +17,25 @@ MAP_SIZE = 1000
 MAX_FOOD = 550
 FOOD_SPAWN_RATE = 0.70
 INITIAL_FOOD = 160
-INITIAL_CREATURES = 15
+INITIAL_CREATURES = 20
 INITIAL_SPEED_RANGE = (2.2, 4.4)
 
 # Creature lifecycle (seconds)
 MATURATION_TIME = 5
 OLD_AGE_DURATION = 30
 STARVATION_TIME = 20
-REPRODUCTION_COOLDOWN = 2
+REPRODUCTION_COOLDOWN_HERB = 2.0   # herbivores reproduce often
+REPRODUCTION_COOLDOWN_PRED = 5.0   # carn / croc much slower
 
 # Energy costs / rewards
-REPRODUCTION_COST = 20
+REPRODUCTION_COST_HERB = 20
+REPRODUCTION_COST_PRED = 35
 MOVEMENT_COST = 0.1
 VISION_COST = 0.03  # per tick per (range * angle / default_angle)
 SPEED_COST = 0.1
 DIRECTION_CHANGE_COST = 0.05
 FOOD_ENERGY = 30
-PREY_ENERGY = 60
+PREY_ENERGY = 35
 EAT_COOLDOWN_HERB = 3.0   # herbivore "sytost"
 EAT_COOLDOWN_PRED = 6.0   # carnivore + crocodile "sytost" — slower predation
 HUNGRY_ENERGY = 50         # below this, creature only chases food
@@ -58,8 +60,8 @@ SPECIES_CARN = 'carn'
 SPECIES_CROC = 'croc'
 
 # Mutation rules — per-child species roll for herbivore parents.
-CARNIVORE_CHANCE = 0.15
-CROCODILE_CHANCE = 0.08
+CARNIVORE_CHANCE = 0.08
+CROCODILE_CHANCE = 0.04
 VISION_CHANCE_NONE = 0.1
 VISION_RANGE_NONE = (5, 10)
 DIRECTION_CHANGE_MUTATION = 0.05
@@ -395,7 +397,18 @@ class Creature:
                 else:
                     target = food_target if food_dist <= mate_dist else mate_target
 
-        # Crocodile homing: walk to the river when nothing else to chase.
+        # Rescue herd: only kick in when the species is nearly extinct
+        # (≤ 5 individuals). Without this gate the whole population
+        # snowballs into one tight cluster and reproduction explodes.
+        if target is None:
+            same = [c for c in creature_list
+                    if c is not self and c.alive and c.species == self.species]
+            if 0 < len(same) <= 5:
+                avg_x = sum(c.x for c in same) / len(same)
+                avg_y = sum(c.y for c in same) / len(same)
+                target = (avg_x, avg_y)
+
+        # Crocodile homing: walk to the river when otherwise idle.
         if target is None and self.is_crocodile and not is_water(self.x, self.y):
             return (self.x, river_center_y(self.x))
 
@@ -508,10 +521,12 @@ class Creature:
         if (self.is_old and self.species == SPECIES_HERB) or \
            (other.is_old and other.species == SPECIES_HERB):
             return 'stáří'
-        if now - self.last_reproduction < REPRODUCTION_COOLDOWN or \
-           now - other.last_reproduction < REPRODUCTION_COOLDOWN:
+        cooldown = REPRODUCTION_COOLDOWN_PRED if self.is_predator else REPRODUCTION_COOLDOWN_HERB
+        if now - self.last_reproduction < cooldown or \
+           now - other.last_reproduction < cooldown:
             return 'cooldown'
-        if self.energy < REPRODUCTION_COST or other.energy < REPRODUCTION_COST:
+        cost = REPRODUCTION_COST_PRED if self.is_predator else REPRODUCTION_COST_HERB
+        if self.energy < cost or other.energy < cost:
             return 'málo energie'
         if math.hypot(self.x - other.x, self.y - other.y) > REPRODUCTION_RADIUS:
             return 'daleko'
@@ -525,8 +540,9 @@ class Creature:
         if not self.can_reproduce_with(other, now):
             return []
 
-        self.energy -= REPRODUCTION_COST
-        other.energy -= REPRODUCTION_COST
+        cost = REPRODUCTION_COST_PRED if self.is_predator else REPRODUCTION_COST_HERB
+        self.energy -= cost
+        other.energy -= cost
         self.last_reproduction = now
         other.last_reproduction = now
         self.reproduction_count += 1
