@@ -66,7 +66,7 @@ DEFAULT_VISION_ANGLE = math.pi / 4         # 45 deg half-cone = 90 deg total
 MAX_VISION_ANGLE = 5 * math.pi / 12        # 75 deg half-cone = 150 deg total
 MIN_VISION_ANGLE = math.pi / 12            # 15 deg half-cone = 30 deg total
 MAX_VISION_RANGE = 50                      # ~5x the old stable equilibrium
-MAX_SPEED = 15                              # cap so long runs don't explode to 100+
+MAX_SPEED = 25                              # cap so long runs don't explode to 100+
 
 # Litter size distribution: 1 child 50%, 2 30%, 3 15%, 4 5%
 LITTER_CUMULATIVE = [(0.50, 1), (0.80, 2), (0.95, 3), (1.00, 4)]
