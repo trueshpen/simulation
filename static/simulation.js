@@ -51,7 +51,7 @@ function drawRiver() {
 }
 
 function speciesColor(c) {
-    if (c.species === 'croc') return c.isOld ? '#062b09' : '#1b5e20';
+    if (c.species === 'croc') return c.isOld ? '#0d3d12' : '#2e7d32';
     if (c.species === 'carn') return c.isOld ? '#8b0000' : '#d32f2f';
     // herbivore: light brown / dark brown
     return c.isOld ? '#5d4037' : '#a1887f';

@@ -51,9 +51,7 @@ body {
     flex-shrink: 0;
 }
 
-.creature-list--croc {
-    grid-column: span 2;
-}
+/* Croc list sits in row 2, same width as the others (225 px). */
 
 .creature-list {
     display: flex;

@@ -372,28 +372,34 @@ class Creature:
         """Pick who/what to walk toward this tick.
         Herbivores and carnivores flee from their predators when seen.
         Hungry creatures only look for food; satisfied creatures pick the
-        closer of food/mate.
+        closer of food/mate. Crocodiles, when otherwise idle, head to water.
         """
-        if self.vision_range <= 0:
-            return None
-
-        # Predator avoidance trumps everything (only crocs have no predators).
-        if not self.is_crocodile:
+        # Predator flee for non-crocs (sighted only)
+        if not self.is_crocodile and self.vision_range > 0:
             predator = self._scan_predator(creature_list)
             if predator is not None:
                 return (self.x + (self.x - predator.x),
                         self.y + (self.y - predator.y))
 
-        food_target, food_dist = self._scan_food(food_list, creature_list)
-        if self.is_hungry():
-            return food_target
+        target = None
+        if self.vision_range > 0:
+            food_target, food_dist = self._scan_food(food_list, creature_list)
+            if self.is_hungry():
+                target = food_target
+            else:
+                mate_target, mate_dist = self._scan_mate(creature_list)
+                if food_target is None:
+                    target = mate_target
+                elif mate_target is None:
+                    target = food_target
+                else:
+                    target = food_target if food_dist <= mate_dist else mate_target
 
-        mate_target, mate_dist = self._scan_mate(creature_list)
-        if food_target is None:
-            return mate_target
-        if mate_target is None:
-            return food_target
-        return food_target if food_dist <= mate_dist else mate_target
+        # Crocodile homing: walk to the river when nothing else to chase.
+        if target is None and self.is_crocodile and not is_water(self.x, self.y):
+            return (self.x, river_center_y(self.x))
+
+        return target
 
     def _scan_predator(self, creature_list):
         """Nearest visible adult predator that hunts this creature's species."""
