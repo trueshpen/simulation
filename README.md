@@ -20,7 +20,7 @@ Browser (index.html + simulation.js)
 
 **Key files:**
 | File | Purpose |
-|------|---------|
+|------|--------|
 | `server.py` | Flask-SocketIO server — full simulation logic and world state |
 | `static/simulation.js` | Browser rendering — canvas drawing, WebSocket client |
 | `templates/index.html` | UI — canvas, stats panel, creature list, event log |
@@ -58,7 +58,7 @@ Open `http://localhost:5000` in your browser. The simulation starts automaticall
 ### Species
 
 | Species | Key traits |
-|---------|-----------|
+|---------|----------|
 | **Herbivore** (`herb`) | Eats food only; reproduces frequently; mutation source for new species |
 | **Carnivore** (`carn`) | Eats adult herbivores and old carnivores; 1.1× speed and vision bonus; slower reproduction |
 | **Crocodile** (`croc`) | River-tied apex predator; hunts up to 30 px from water on land; slowed on land |
@@ -109,7 +109,7 @@ Traits are inherited from parents with random mutation:
 <!-- AUTO-GENERATED: START -->
 *This part is automatically updated by the night AI task*
 
-**Last update:** 2026-04-29 UTC — no new changes
+**Last update:** 2026-05-05 UTC — no new changes
 
 **Last commits:**
 - `26bec77` Keep crocodiles tied to the river (2026-04-25)
